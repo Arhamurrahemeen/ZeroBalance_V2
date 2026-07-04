@@ -145,7 +145,11 @@ class SessionBuilder:
     def build_clean(self) -> None:
         rng = self.rng
         balance = self.opening_float
-        for _ in range(rng.randint(30, 70)):
+        n = rng.randint(30, 70)
+        # repeat customers: accounts drawn from a per-session pool, so a
+        # near-miss account is detectable against its correct occurrences
+        self.account_pool = [_account(rng) for _ in range(max(8, n // 3))]
+        for _ in range(n):
             amount = _amount(rng)
             if rng.random() < 0.6 or amount > balance * 0.5:
                 txn_type = "cash_in"
@@ -153,7 +157,8 @@ class SessionBuilder:
             else:
                 txn_type = "cash_out"
                 balance -= amount
-            t = Txn(self.next_ref(), _account(rng), txn_type, amount, self._next_time())
+            t = Txn(self.next_ref(), rng.choice(self.account_pool), txn_type,
+                    amount, self._next_time())
             self.actual.append(t)
             # ~8% of txns get a legit posted reversal pair (cancels out)
             if rng.random() < 0.08:
@@ -243,17 +248,31 @@ class SessionBuilder:
 
     def inject_wrong_adjacent_account(self, exclude: set[str]) -> TruthError:
         rng = self.rng
-        i, t = self._pick_target(exclude)
-        digits = list(t.account)
-        pairs = [p for p in range(len(digits) - 1)
-                 if digits[p] != digits[p + 1] and not (p == 0 and digits[p + 1] == "0")]
-        if pairs and rng.random() < 0.5:
-            p = rng.choice(pairs)
-            digits[p], digits[p + 1] = digits[p + 1], digits[p]
-        else:
-            p = rng.randrange(1, len(digits))
-            digits[p] = str((int(digits[p]) + rng.choice((-1, 1))) % 10)
-        wrong = "".join(digits)
+        from collections import Counter
+
+        counts = Counter(x.account for x in self.posted)
+        i = t = None
+        for _ in range(200):  # target an account posted correctly elsewhere too
+            j, cand = self._pick_target(exclude)
+            if counts[cand.account] >= 2:
+                i, t = j, cand
+                break
+        if t is None:
+            i, t = self._pick_target(exclude)
+        pool = set(self.account_pool)
+        while True:
+            digits = list(t.account)
+            pairs = [p for p in range(len(digits) - 1)
+                     if digits[p] != digits[p + 1] and not (p == 0 and digits[p + 1] == "0")]
+            if pairs and rng.random() < 0.5:
+                p = rng.choice(pairs)
+                digits[p], digits[p + 1] = digits[p + 1], digits[p]
+            else:
+                p = rng.randrange(1, len(digits))
+                digits[p] = str((int(digits[p]) + rng.choice((-1, 1))) % 10)
+            wrong = "".join(digits)
+            if wrong != t.account and wrong not in pool:
+                break
         self.posted[i] = replace(t, account=wrong)
         return TruthError(
             "wrong_adjacent_account", [t.ref],
