@@ -43,7 +43,7 @@ CREATE TABLE denomination_counts (
 );
 
 -- Engine output: ranked suspects (top 3-5), deterministic rule evidence.
--- anomaly_score is a SECONDARY signal (display only). explanation_ur is post-hoc Gemini text.
+-- anomaly_score is a SECONDARY signal (display only). explanation_ur is post-hoc Groq text.
 CREATE TABLE suspects (
     id             BIGSERIAL PRIMARY KEY,
     session_id     BIGINT   NOT NULL REFERENCES eod_sessions (id),
@@ -54,7 +54,7 @@ CREATE TABLE suspects (
                        'denomination_shortfall', 'cash_inout_miskey', 'wrong_adjacent_account')),
     rule_evidence  JSONB    NOT NULL,      -- reproducible rule facts behind this pick
     anomaly_score  REAL,                   -- Isolation Forest, informational only
-    explanation_ur TEXT,                   -- Gemini Urdu explanation, post-hoc
+    explanation_ur TEXT,                   -- Groq Urdu explanation, post-hoc
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (session_id, rank)
 );

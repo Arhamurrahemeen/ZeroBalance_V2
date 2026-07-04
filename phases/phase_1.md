@@ -31,10 +31,23 @@ docker-compose.yml
 
 ## Commands
 ```
-cp .env.example .env        # then fill GEMINI_API_KEY
+cp .env.example .env        # then fill GROQ_API_KEY
 docker compose up -d --build
 curl http://localhost:8000/api/v1/health
 ```
 
+## What to expect
+- `docker compose up -d --build` → 3 containers running: db (healthy), qdrant, backend.
+- `curl http://localhost:8000/api/v1/health` → `{"status":"ok","service":"zerobalance-backend"}`.
+- `psql \dt` → 6 tables: eod_sessions, transactions, denomination_counts, suspects, audit_ledger, recon_reports.
+- `UPDATE`/`DELETE` on audit_ledger → rejected with `audit_ledger is append-only`.
+
 ## Achieved
-_(updated on completion)_
+- Repo scaffolded: /backend (app/, Dockerfile, requirements.txt, pyproject.toml, schema.sql), /frontend, /data, /docs placeholders, docker-compose.yml, .env/.env.example, .gitignore.
+- Stack swap: Gemini → Groq (free tier) for the explanation layer, per explicit chat approval. Updated CLAUDE.md LOCKED table + constraints, requirements.txt (`groq` replaces `google-genai`), .env/.env.example, schema.sql comments.
+- schema.sql applied via Postgres initdb: eod_sessions, transactions, denomination_counts (one row per denomination per session, no per-txn FK — enforces the single-count rule), suspects, audit_ledger, recon_reports.
+- audit_ledger append-only trigger verified live: UPDATE raises `audit_ledger is append-only`; batched INSERT+UPDATE rolled back atomically, ledger stays empty.
+- docker compose up: db (healthy), qdrant, backend all running. `GET /api/v1/health` → `{"status":"ok","service":"zerobalance-backend"}`.
+- Fixed a real Groq key that had been placed in .env.example (tracked file, not gitignored) — replaced with placeholder before it could leak via commit.
+
+Gate passed: Phase 2 (synthetic generator + ground_truth.py) unblocked.

@@ -7,7 +7,7 @@ psycopg[binary]==3.2.9
 rapidfuzz==3.13.0
 scikit-learn==1.6.1
 qdrant-client==1.14.2
-google-genai==1.16.1
+groq==0.26.0
 python-multipart==0.0.20
 pytest==8.3.5
 httpx==0.28.1
