@@ -1,0 +1,88 @@
+<svg viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ZeroBalance pipeline: Teller input flows through the matching engine, flag engine, and Groq explanation into the dashboard and the Postgres audit ledger">
+  <defs>
+    <pattern id="dotgrid2" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.1" fill="#8B7355" opacity="0.08"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8B7355"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="300" fill="#FAF8F3"/>
+  <rect width="1200" height="300" fill="url(#dotgrid2)"/>
+
+  <text x="40" y="42" font-family="'Courier New', monospace" font-size="13" letter-spacing="2" fill="#6E6A62">THE PIPELINE</text>
+
+  <!-- card template repeated: white fill, #E0D8CA border, 6px radius, 5px mocha left accent -->
+
+  <!-- 1. Teller Input -->
+  <g>
+    <rect x="30" y="90" width="165" height="120" rx="6" fill="#FFFFFF" stroke="#E0D8CA" stroke-width="1.5"/>
+    <rect x="30" y="90" width="5" height="120" fill="#8B7355"/>
+    <text x="50" y="130" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Teller</text>
+    <text x="50" y="152" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Input</text>
+    <text x="50" y="180" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">PIBAS CSV +</text>
+    <text x="50" y="196" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">one denom. count</text>
+  </g>
+
+  <line x1="195" y1="150" x2="223" y2="150" stroke="#8B7355" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 2. Matching Engine -->
+  <g>
+    <rect x="225" y="90" width="165" height="120" rx="6" fill="#FFFFFF" stroke="#E0D8CA" stroke-width="1.5"/>
+    <rect x="225" y="90" width="5" height="120" fill="#8B7355"/>
+    <text x="245" y="130" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Matching</text>
+    <text x="245" y="152" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Engine</text>
+    <text x="245" y="180" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">rapidfuzz + rules</text>
+    <text x="245" y="196" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">deterministic only</text>
+  </g>
+
+  <line x1="390" y1="150" x2="418" y2="150" stroke="#8B7355" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 3. Flag Engine -->
+  <g>
+    <rect x="420" y="90" width="165" height="120" rx="6" fill="#FFFFFF" stroke="#E0D8CA" stroke-width="1.5"/>
+    <rect x="420" y="90" width="5" height="120" fill="#8B7355"/>
+    <text x="440" y="130" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Flag</text>
+    <text x="440" y="152" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Engine</text>
+    <text x="440" y="180" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">ranks top 3–5</text>
+    <text x="440" y="196" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">suspects, w/ evidence</text>
+  </g>
+
+  <line x1="585" y1="150" x2="613" y2="150" stroke="#8B7355" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 4. Groq -->
+  <g>
+    <rect x="615" y="90" width="165" height="120" rx="6" fill="#FFFFFF" stroke="#E0D8CA" stroke-width="1.5"/>
+    <rect x="615" y="90" width="5" height="120" fill="#8B7355"/>
+    <text x="635" y="130" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Groq</text>
+    <text x="635" y="152" font-family="Cambria, Georgia, serif" font-size="14.5" fill="#1A1A18">(explanation)</text>
+    <text x="635" y="180" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">Urdu, post-hoc</text>
+    <text x="635" y="196" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#B25C3F">never decides</text>
+  </g>
+
+  <line x1="780" y1="150" x2="808" y2="150" stroke="#8B7355" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 5. Dashboard -->
+  <g>
+    <rect x="810" y="90" width="165" height="120" rx="6" fill="#FFFFFF" stroke="#E0D8CA" stroke-width="1.5"/>
+    <rect x="810" y="90" width="5" height="120" fill="#8B7355"/>
+    <text x="830" y="130" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Dashboard</text>
+    <text x="830" y="180" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">worklist, ageing,</text>
+    <text x="830" y="196" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">recon report</text>
+  </g>
+
+  <line x1="975" y1="150" x2="1003" y2="150" stroke="#8B7355" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 6. Postgres Ledger -->
+  <g>
+    <rect x="1005" y="90" width="165" height="120" rx="6" fill="#FFFFFF" stroke="#E0D8CA" stroke-width="1.5"/>
+    <rect x="1005" y="90" width="5" height="120" fill="#8B7355"/>
+    <text x="1025" y="130" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Postgres</text>
+    <text x="1025" y="152" font-family="Cambria, Georgia, serif" font-size="18" fill="#1A1A18">Ledger</text>
+    <text x="1025" y="180" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">append-only,</text>
+    <text x="1025" y="196" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="12.5" fill="#6E6A62">hash-chained</text>
+  </g>
+
+  <text x="40" y="264" font-family="'Courier New', monospace" font-size="12" letter-spacing="1.5" fill="#8A8275">RULE ENGINE DECIDES · GROQ ONLY EXPLAINS</text>
+</svg>

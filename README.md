@@ -1,8 +1,21 @@
+<p align="center">
+  <img src="assets/zerobalance-banner.svg" alt="ZeroBalance — EOD Cash-Reconciliation Co-pilot" width="100%"/>
+</p>
+
 # ZeroBalance — EOD Cash-Reconciliation Co-pilot
 
-Hackathon MVP (UBL National Innovation Hackathon). When a teller's till doesn't balance at end of day, ZeroBalance ingests the CBS transaction export (PIBAS CSV) plus the teller's single denomination count, and a **deterministic rule engine** pinpoints the likely culprit transactions — digit transpositions, duplicate postings, missed reversals, denomination shortfalls, cash-in/out miskeys, wrong-account postings — ranked top 3–5 with exact cash-delta evidence. Groq then explains each pick **post-hoc in Urdu** (it never decides or ranks), and every action lands in an append-only, hash-chained audit ledger. Saathi, a Qdrant-RAG side assistant, answers SOP/circular questions in Urdu from a static demo corpus.
+> When a teller's till doesn't balance, someone still opens the ledger by hand and starts guessing.
+> I built the part that shouldn't be manual anymore.
+
+I built this for the UBL National Innovation Hackathon. The problem: a teller's till doesn't balance at end of day, and someone has to comb through the day's transactions to figure out why. ZeroBalance does that instead — it takes the CBS transaction export (PIBAS CSV) plus the teller's single denomination count, and runs both through a **deterministic rule engine** that pinpoints the likely culprit transactions: digit transpositions, duplicate postings, missed reversals, denomination shortfalls, cash-in/out miskeys, wrong-account postings. It ranks the top 3–5 suspects with exact cash-delta evidence, not a confidence score pulled out of nowhere.
+
+Groq explains each pick **post-hoc, in Urdu**. It never decides or ranks anything — it just narrates what the engine already found. Every action lands in an append-only, hash-chained audit ledger, so nothing gets rewritten quietly after the fact. Saathi, a Qdrant-RAG side assistant, answers SOP and circular questions in Urdu from a static demo corpus.
 
 Flow: `Teller input → Matching engine → Flag engine → Groq (explanation) → Dashboard → Postgres audit ledger`
+
+<p align="center">
+  <img src="assets/zerobalance-flow.svg" alt="ZeroBalance pipeline diagram" width="100%"/>
+</p>
 
 ## Development summary
 
@@ -19,7 +32,7 @@ Built in 8 gated phases (details in `/phases/phase_<n>.md`):
 | 7 | React dashboard — worklist, ageing, recon report views + ingest modal + Saathi drawer |
 | 8 | EOD Recon Report PDF (WeasyPrint) carrying the audit-ledger head hash |
 
-40 backend tests (engine oracle, API e2e, explain invariants, Saathi retrieval, PDF/ledger bookkeeping).
+40 backend tests: engine oracle, API e2e, explain invariants, Saathi retrieval, PDF/ledger bookkeeping. I didn't ship a phase without its gate passing.
 
 ## Project structure
 
@@ -71,3 +84,7 @@ Tests (in-container; truncates the dev DB):
 docker compose exec backend pytest -q          # 40 tests
 python data/ground_truth.py                    # oracle self-check (host Python ok)
 ```
+
+The engine decides. Groq just explains. That split is the whole point.
+
+— Arham

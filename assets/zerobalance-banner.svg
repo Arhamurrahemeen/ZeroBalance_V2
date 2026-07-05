@@ -1,0 +1,23 @@
+<svg viewBox="0 0 1200 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ZeroBalance — EOD Cash-Reconciliation Co-pilot, UBL National Innovation Hackathon MVP">
+  <defs>
+    <pattern id="dotgrid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.1" fill="#8B7355" opacity="0.10"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="280" fill="#FAF8F3"/>
+  <rect width="1200" height="280" fill="url(#dotgrid)"/>
+
+  <!-- editorial double hairline frame -->
+  <rect x="18" y="18" width="1164" height="244" fill="none" stroke="#1A1A18" stroke-width="1.5"/>
+  <rect x="24" y="24" width="1152" height="232" fill="none" stroke="#8B7355" stroke-width="1"/>
+
+  <!-- mocha accent bar -->
+  <rect x="60" y="96" width="6" height="90" fill="#8B7355"/>
+
+  <text x="90" y="150" font-family="Cambria, Georgia, serif" font-style="italic" font-size="64" fill="#1A1A18">ZeroBalance</text>
+
+  <text x="92" y="182" font-family="Calibri, 'Segoe UI', system-ui, sans-serif" font-size="20" fill="#8B7355">EOD Cash-Reconciliation Co-pilot</text>
+
+  <text x="92" y="216" font-family="'Courier New', monospace" font-size="13" letter-spacing="2" fill="#6E6A62">UBL NATIONAL INNOVATION HACKATHON · 72-HOUR MVP</text>
+</svg>
