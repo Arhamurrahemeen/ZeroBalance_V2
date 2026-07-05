@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -66,6 +66,21 @@ def _get_session(db: Session, session_id: int) -> EodSessionRow:
 @router.get("/sessions/{session_id}", response_model=SessionDetail)
 def session_detail(session_id: int, db: DbDep) -> SessionDetail:
     return to_detail(db, _get_session(db, session_id))
+
+
+@router.get("/sessions/{session_id}/report.pdf")
+def session_report_pdf(session_id: int, db: DbDep) -> Response:
+    # binary route: returns application/pdf, not a Pydantic model
+    from .report import generate_report_pdf
+
+    row = _get_session(db, session_id)
+    pdf = generate_report_pdf(db, row)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition":
+                 f'inline; filename="zerobalance_recon_{row.id}.pdf"'},
+    )
 
 
 @router.post("/sessions/{session_id}/resolve", response_model=SessionSummary)

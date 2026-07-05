@@ -1,4 +1,4 @@
-const BASE = "http://localhost:8000/api/v1";
+export const BASE = "http://localhost:8000/api/v1";
 
 async function api(path, opts = {}) {
   const r = await fetch(`${BASE}${path}`, opts);

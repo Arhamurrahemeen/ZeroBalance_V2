@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { getSession, getSessions, verifyLedger } from "../api.js";
+import { BASE, getSession, getSessions, verifyLedger } from "../api.js";
 import { pkr } from "./Worklist.jsx";
 
 export default function Report() {
@@ -30,6 +30,12 @@ export default function Report() {
           ))}
         </select>
         {s && <button className="btn" onClick={() => window.print()}>Print</button>}
+        {s && (
+          <a className="btn" href={`${BASE}/sessions/${s.id}/report.pdf`}
+             target="_blank" rel="noreferrer">
+            Download PDF
+          </a>
+        )}
       </div>
 
       {s && (
