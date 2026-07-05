@@ -80,6 +80,22 @@ def resolve_session(session_id: int, body: ResolveRequest, db: DbDep) -> Session
     return to_summary(db, row)
 
 
+@router.post("/sessions/{session_id}/explain", response_model=SessionDetail)
+def explain_session(session_id: int, db: DbDep) -> SessionDetail:
+    from .config import settings
+    from .explain import explain_suspects
+
+    row = _get_session(db, session_id)
+    if not settings.groq_api_key or settings.groq_api_key.startswith("your-"):
+        raise HTTPException(503, "GROQ_API_KEY not configured")
+    try:
+        explain_suspects(db, row)
+    except Exception as e:  # upstream/network failure must not corrupt state
+        db.rollback()
+        raise HTTPException(502, f"explanation service failed: {e}") from e
+    return to_detail(db, row)
+
+
 @router.get("/ledger/verify", response_model=LedgerVerifyOut)
 def ledger_verify(db: DbDep) -> LedgerVerifyOut:
     ok, entries, head = verify_ledger(db)
