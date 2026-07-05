@@ -1,13 +1,14 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .db import append_ledger, get_db, verify_ledger
 from .db_models import EodSessionRow
+from .saathi import SaathiAnswer
 from .schemas import (
     HealthResponse,
     IngestMeta,
@@ -100,3 +101,29 @@ def explain_session(session_id: int, db: DbDep) -> SessionDetail:
 def ledger_verify(db: DbDep) -> LedgerVerifyOut:
     ok, entries, head = verify_ledger(db)
     return LedgerVerifyOut(ok=ok, entries=entries, head=head)
+
+
+class SaathiAskRequest(BaseModel):
+    question: str
+
+
+@router.post("/saathi/ask", response_model=SaathiAnswer)
+def saathi_ask(body: SaathiAskRequest) -> SaathiAnswer:
+    from .config import settings
+    from .saathi import ask
+
+    if not settings.groq_api_key or settings.groq_api_key.startswith("your-"):
+        raise HTTPException(503, "GROQ_API_KEY not configured")
+    if not body.question.strip():
+        raise HTTPException(422, "question must not be empty")
+    try:
+        return ask(body.question)
+    except Exception as e:
+        raise HTTPException(502, f"saathi failed: {e}") from e
+
+
+@router.get("/saathi/queries", response_model=list[str])
+def saathi_queries() -> list[str]:
+    from .saathi import SAMPLE_QUERIES
+
+    return SAMPLE_QUERIES
