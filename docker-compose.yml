@@ -41,7 +41,17 @@ services:
       qdrant:
         condition: service_started
 
-  # frontend service added once the engine gate passes (UI work blocked until then)
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

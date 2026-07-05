@@ -41,6 +41,7 @@ class SessionSummary(BaseModel):
 
 class SessionDetail(SessionSummary):
     txn_count: int
+    denomination_count: dict[int, int]
     suspects: list[SuspectOut]
 
 

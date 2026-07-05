@@ -160,9 +160,13 @@ def to_detail(db: Session, row: EodSessionRow) -> SessionDetail:
     txn_count = len(db.execute(
         select(TransactionRow.id).where(TransactionRow.session_id == row.id)
     ).all())
+    denoms = db.execute(
+        select(DenominationCountRow).where(DenominationCountRow.session_id == row.id)
+    ).scalars().all()
     return SessionDetail(
         **to_summary(db, row).model_dump(),
         txn_count=txn_count,
+        denomination_count={d.denomination: d.note_count for d in denoms},
         suspects=[
             SuspectOut(
                 rank=s.rank, signature=s.signature,  # type: ignore[arg-type]
