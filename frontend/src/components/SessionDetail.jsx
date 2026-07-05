@@ -12,7 +12,7 @@ const SIGNATURE_LABELS = {
   wrong_adjacent_account: "Wrong adjacent account",
 };
 
-function Suspect({ s }) {
+function Suspect({ s, lang }) {
   return (
     <div className="suspect">
       <div className="suspect-head">
@@ -43,13 +43,15 @@ function Suspect({ s }) {
         )}
       </dl>
       {s.explanation_ur && (
-        <p className="urdu" dir="rtl" lang="ur">{s.explanation_ur}</p>
+        <p className={lang === "ur" ? "urdu" : ""} dir={lang === "ur" ? "rtl" : "ltr"} lang={lang}>
+          {s.explanation_ur}
+        </p>
       )}
     </div>
   );
 }
 
-export default function SessionDetail({ sessionId, onClose }) {
+export default function SessionDetail({ sessionId, onClose, lang = "ur" }) {
   const qc = useQueryClient();
   const [note, setNote] = useState("");
   const { data: s, isLoading } = useQuery({
@@ -61,15 +63,17 @@ export default function SessionDetail({ sessionId, onClose }) {
     qc.invalidateQueries({ queryKey: ["sessions"] });
     qc.invalidateQueries({ queryKey: ["session", sessionId] });
   };
-  const explain = useMutation({ mutationFn: () => explainSession(sessionId), onSuccess: invalidate });
+  const hasAnyExplanation = s?.suspects.some((x) => x.explanation_ur) ?? false;
+  const explain = useMutation({
+    mutationFn: () => explainSession(sessionId, { lang, force: hasAnyExplanation }),
+    onSuccess: invalidate,
+  });
   const resolve = useMutation({
     mutationFn: () => resolveSession({ id: sessionId, note }),
     onSuccess: () => { setNote(""); invalidate(); },
   });
 
   if (isLoading || !s) return <aside className="panel detail"><p className="muted">Loading…</p></aside>;
-
-  const needsExplain = s.suspects.some((x) => !x.explanation_ur);
 
   return (
     <aside className="panel detail">
@@ -88,13 +92,17 @@ export default function SessionDetail({ sessionId, onClose }) {
 
       <h3>Ranked suspects (engine)</h3>
       {s.suspects.length === 0 && <p className="muted">No suspects — session balanced.</p>}
-      {s.suspects.map((x) => <Suspect key={x.rank} s={x} />)}
+      {s.suspects.map((x) => <Suspect key={x.rank} s={x} lang={lang} />)}
 
       <div className="detail-actions">
-        {s.suspects.length > 0 && needsExplain && (
+        {s.suspects.length > 0 && (
           <button className="btn primary" disabled={explain.isPending}
                   onClick={() => explain.mutate()}>
-            {explain.isPending ? "Groq is writing…" : "Explain in Urdu"}
+            {explain.isPending
+              ? "Groq is writing…"
+              : hasAnyExplanation
+                ? `Re-explain in ${lang === "ur" ? "Urdu" : "English"}`
+                : `Explain in ${lang === "ur" ? "Urdu" : "English"}`}
           </button>
         )}
         {(s.status === "flagged" || s.status === "open") && (

@@ -1,9 +1,17 @@
-"""Saathi tests: retrieval accuracy on the 10 pre-tested queries (real Qdrant +
+"""Rahbar tests: retrieval accuracy on the 10 pre-tested queries (real Qdrant +
 local embedder, no network) and the ask flow with a fake Groq client."""
 
 import pytest
 
-from app.saathi import SAMPLE_QUERIES, ask, ensure_indexed, load_corpus, retrieve
+from app.rahbar import (
+    SAMPLE_QUERIES,
+    SAMPLE_QUERIES_EN,
+    ask,
+    ensure_indexed,
+    load_corpus,
+    retrieve,
+    sample_query_pairs,
+)
 
 # each pre-tested query -> corpus doc id that must appear in top-3
 EXPECTED = {
@@ -46,6 +54,7 @@ class _FakeGroq:
 
     def __init__(self) -> None:
         self.prompts: list[str] = []
+        self.prompts_full: list[list[dict[str, str]]] = []
 
     @property
     def chat(self) -> "_FakeGroq":
@@ -58,6 +67,7 @@ class _FakeGroq:
     def create(self, **kwargs: object) -> object:
         messages = kwargs["messages"]
         self.prompts.append(messages[-1]["content"])  # type: ignore[index]
+        self.prompts_full.append(messages)  # type: ignore[arg-type]
 
         class R:
             class _Choice:
@@ -70,10 +80,32 @@ class _FakeGroq:
 
 def test_ask_grounds_answer_in_retrieved_context() -> None:
     fake = _FakeGroq()
-    answer = ask(SAMPLE_QUERIES[4], client=fake)  # duplicate posting
-    assert answer.answer_ur
+    answer = ask(SAMPLE_QUERIES[4], client=fake)  # duplicate posting, defaults to lang="ur"
+    assert answer.answer
+    assert answer.lang == "ur"
     assert len(answer.sources) == 3
     prompt = fake.prompts[0]
     assert SAMPLE_QUERIES[4] in prompt
     dup_doc = next(d for d in load_corpus() if d["id"] == 5)
     assert dup_doc["text_ur"] in prompt, "retrieved snippet must be in the context"
+
+
+def test_ask_lang_toggle_switches_system_prompt() -> None:
+    fake = _FakeGroq()
+    answer = ask(SAMPLE_QUERIES[0], lang="en", client=fake)
+    assert answer.lang == "en"
+    system_msg = fake.prompts_full[0][0]["content"]  # type: ignore[index]
+    assert "plain English" in system_msg
+
+
+def test_ask_rejects_unsupported_lang() -> None:
+    with pytest.raises(ValueError):
+        ask(SAMPLE_QUERIES[0], lang="fr", client=_FakeGroq())
+
+
+def test_query_pairs_have_matching_english_labels() -> None:
+    assert len(SAMPLE_QUERIES_EN) == len(SAMPLE_QUERIES) == 10
+    pairs = sample_query_pairs()
+    assert [p.ur for p in pairs] == SAMPLE_QUERIES
+    assert [p.en for p in pairs] == SAMPLE_QUERIES_EN
+    assert all(p.ur and p.en for p in pairs)

@@ -77,6 +77,24 @@ def test_explain_fills_urdu_and_never_reorders(client: TestClient) -> None:
         assert a["explanation_ur"] == "یہ لین دین دو بار درج ہوا ہے۔"
 
 
+def test_explain_lang_toggle_requires_force_to_regenerate(client: TestClient) -> None:
+    case = make_case("exp_lang", ["denomination_shortfall"], seed=26)
+    sid = ingest(client, case).json()["id"]
+
+    client.post(f"/api/v1/sessions/{sid}/explain", params={"lang": "ur"})
+    calls_after_ur = len(client.fake.completions.calls)  # type: ignore[attr-defined]
+
+    # switching lang without force: already-explained suspects are left alone
+    client.post(f"/api/v1/sessions/{sid}/explain", params={"lang": "en"})
+    assert len(client.fake.completions.calls) == calls_after_ur  # type: ignore[attr-defined]
+
+    # with force: regenerates for every suspect in the new language
+    client.post(f"/api/v1/sessions/{sid}/explain", params={"lang": "en", "force": "true"})
+    assert len(client.fake.completions.calls) > calls_after_ur  # type: ignore[attr-defined]
+    last_system_msg = client.fake.completions.calls[-1]["messages"][0]["content"]  # type: ignore[attr-defined]
+    assert "plain English" in last_system_msg
+
+
 def test_explain_is_idempotent(client: TestClient) -> None:
     case = make_case("exp_idem", ["cash_inout_miskey"], seed=22)
     sid = ingest(client, case).json()["id"]

@@ -22,10 +22,12 @@ export const getSessions = () => api("/sessions");
 export const getSession = (id) => api(`/sessions/${id}`);
 export const resolveSession = ({ id, note }) =>
   api(`/sessions/${id}/resolve`, json({ note, actor: "teller" }));
-export const explainSession = (id) => api(`/sessions/${id}/explain`, { method: "POST" });
+export const explainSession = (id, { lang = "ur", force = false } = {}) =>
+  api(`/sessions/${id}/explain?lang=${lang}&force=${force}`, { method: "POST" });
 export const verifyLedger = () => api("/ledger/verify");
-export const saathiQueries = () => api("/saathi/queries");
-export const saathiAsk = (question) => api("/saathi/ask", json({ question }));
+export const rahbarQueries = () => api("/rahbar/queries");
+export const rahbarAsk = ({ question, lang = "ur" }) =>
+  api("/rahbar/ask", json({ question, lang }));
 
 export function ingestSession({ file, meta }) {
   const fd = new FormData();

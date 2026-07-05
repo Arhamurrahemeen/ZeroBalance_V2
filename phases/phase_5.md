@@ -37,4 +37,4 @@ docker compose exec backend pytest -q
 - 25 tests green (6 new: fill+never-reorder invariant, idempotency, prompt masking, mask unit, 502 state-safety, 503), ruff clean. No network in tests (fake client).
 - Live smoke: miskey demo case → Urdu explanation naming TXN0005, 6,700 cash_out, 13,400 PKR variance impact. Groq free tier + real key working.
 
-Next: Phase 6 — Saathi (Qdrant RAG, static corpus, 10 pre-tested Urdu queries).
+Next: Phase 6 — Rahbar (Qdrant RAG, static corpus, 10 pre-tested Urdu queries).

@@ -1,6 +1,6 @@
-# Saathi — 10 pre-tested Urdu queries (demo scope)
+# Rahbar — 10 pre-tested Urdu queries (demo scope)
 
-Corpus: 16 synthetic snippets in `backend/app/saathi_corpus.json` (all marked مصنوعی ڈیمو —
+Corpus: 16 synthetic snippets in `backend/app/rahbar_corpus.json` (all marked مصنوعی ڈیمو —
 invented for the demo, not real SBP/bank policy). Retrieval: multilingual MiniLM embeddings
 in Qdrant, top-3. Answers: Groq, grounded in retrieved snippets only.
 
@@ -17,6 +17,6 @@ in Qdrant, top-3. Answers: Groq, grounded in retrieved snippets only.
 | 9 | والٹ میں کیش منتقل کرنے کا طریقہ کیا ہے؟ | Vault transfer dual custody |
 | 10 | غلط اکاؤنٹ میں رقم چلی جائے تو کیا کریں؟ | Wrong account posting |
 
-Each query is oracle-tested in `backend/tests/test_saathi.py`: the expected snippet must
+Each query is oracle-tested in `backend/tests/test_rahbar.py`: the expected snippet must
 appear in the top-3 retrieval results. Out of scope (LOCKED): corpus management UI, live
 upload, queries beyond this demo set.

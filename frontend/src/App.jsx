@@ -2,7 +2,7 @@ import { useState } from "react";
 import Ageing from "./components/Ageing.jsx";
 import IngestModal from "./components/IngestModal.jsx";
 import Report from "./components/Report.jsx";
-import Saathi from "./components/Saathi.jsx";
+import Rahbar from "./components/Rahbar.jsx";
 import Worklist from "./components/Worklist.jsx";
 
 const TABS = [
@@ -14,7 +14,10 @@ const TABS = [
 export default function App() {
   const [tab, setTab] = useState("worklist");
   const [showIngest, setShowIngest] = useState(false);
-  const [showSaathi, setShowSaathi] = useState(false);
+  const [showRahbar, setShowRahbar] = useState(false);
+  // Shared EN/UR toggle for Rahbar chat + Groq exception explanations.
+  // The EOD Recon Report stays fixed English regardless of this — separate audience.
+  const [lang, setLang] = useState("ur");
 
   return (
     <div className="app">
@@ -35,23 +38,39 @@ export default function App() {
           ))}
         </nav>
         <div className="topbar-actions">
+          <div className="lang-toggle" title="Rahbar & explanation language">
+            <button
+              className={lang === "ur" ? "btn ghost active" : "btn ghost"}
+              onClick={() => setLang("ur")}
+            >
+              اردو
+            </button>
+            <button
+              className={lang === "en" ? "btn ghost active" : "btn ghost"}
+              onClick={() => setLang("en")}
+            >
+              EN
+            </button>
+          </div>
           <button className="btn primary" onClick={() => setShowIngest(true)}>
             + New EOD Session
           </button>
-          <button className="btn ghost" onClick={() => setShowSaathi((s) => !s)}>
-            ساتھی Saathi
+          <button className="btn ghost" onClick={() => setShowRahbar((s) => !s)}>
+            رہبر Rahbar
           </button>
         </div>
       </header>
 
       <main className="content">
-        {tab === "worklist" && <Worklist />}
+        {tab === "worklist" && <Worklist lang={lang} />}
         {tab === "ageing" && <Ageing />}
         {tab === "report" && <Report />}
       </main>
 
       {showIngest && <IngestModal onClose={() => setShowIngest(false)} />}
-      {showSaathi && <Saathi onClose={() => setShowSaathi(false)} />}
+      {showRahbar && (
+        <Rahbar onClose={() => setShowRahbar(false)} lang={lang} onLangChange={setLang} />
+      )}
     </div>
   );
 }

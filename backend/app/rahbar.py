@@ -1,7 +1,12 @@
-"""Saathi — Urdu Q&A over a static corpus (Qdrant RAG).
+"""Rahbar — Urdu/English Q&A over a static corpus (Qdrant RAG).
 
 Demo scope (LOCKED): static corpus, 10 pre-tested Urdu queries. No corpus
 management, no live upload. Groq only verbalizes retrieved snippets.
+
+Language toggle: retrieval always runs over the Urdu corpus (multilingual
+embedder, no corpus translation needed). Only the answer's output language
+changes per `lang` — the SYSTEM_PROMPT for the requested language instructs
+Groq to answer in that language while still grounding in the Urdu context.
 """
 
 from __future__ import annotations
@@ -18,7 +23,7 @@ from qdrant_client.models import Distance, PointStruct, VectorParams
 
 from .config import settings
 
-COLLECTION = "saathi_corpus"
+COLLECTION = "rahbar_corpus"
 EMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EMBED_DIM = 384
 TOP_K = 3
@@ -36,26 +41,69 @@ SAMPLE_QUERIES = [
     "غلط اکاؤنٹ میں رقم چلی جائے تو کیا کریں؟",
 ]
 
-SYSTEM_PROMPT = (
-    "You are Saathi (ساتھی), the Urdu branch-operations assistant inside ZeroBalance "
-    "for bank tellers in Pakistan. Answer the teller's question ONLY from the provided "
-    "context snippets (a synthetic demo corpus of SBP-style circulars and branch SOPs). "
-    "Reply in simple Urdu script, 2-4 short sentences, numbers in western digits. "
-    "If the context does not contain the answer, say in Urdu that you do not have this "
-    "information and to consult the Branch Operations Manager. Never invent policy "
-    "numbers or amounts. End with: ماخذ: followed by the source title(s) you used."
-)
+# English display labels for the same 10 queries, same order. Retrieval always
+# runs on the SAMPLE_QUERIES (Urdu) text above — that's what the oracle in
+# test_rahbar.py verifies against the corpus. These are labels only.
+SAMPLE_QUERIES_EN = [
+    "How should cash be reconciled at end of day?",
+    "How do I record the denomination count?",
+    "At what variance level must I report to the manager?",
+    "If cash is short, whose responsibility is it?",
+    "What do I do if a transaction was posted twice?",
+    "Who approves a reversal?",
+    "What should be done if a counterfeit note is found?",
+    "What is the maximum cash a teller can hold?",
+    "What is the procedure to transfer cash to the vault?",
+    "What do I do if money goes to the wrong account?",
+]
 
 
-class SaathiSource(BaseModel):
+class QueryPair(BaseModel):
+    ur: str
+    en: str
+
+
+def sample_query_pairs() -> list[QueryPair]:
+    return [
+        QueryPair(ur=ur, en=en)
+        for ur, en in zip(SAMPLE_QUERIES, SAMPLE_QUERIES_EN, strict=True)
+    ]
+
+SYSTEM_PROMPTS = {
+    "ur": (
+        "You are Rahbar (رہبر), the branch-operations assistant inside ZeroBalance "
+        "for bank tellers in Pakistan. Answer the teller's question ONLY from the provided "
+        "context snippets (a synthetic demo corpus of SBP-style circulars and branch SOPs). "
+        "Reply in simple Urdu script, 2-4 short sentences, numbers in western digits. "
+        "If the context does not contain the answer, say in Urdu that you do not have this "
+        "information and to consult the Branch Operations Manager. Never invent policy "
+        "numbers or amounts. End with: ماخذ: followed by the source title(s) you used."
+    ),
+    "en": (
+        "You are Rahbar, the branch-operations assistant inside ZeroBalance for bank "
+        "tellers in Pakistan. Answer the teller's question ONLY from the provided context "
+        "snippets (a synthetic demo corpus of SBP-style circulars and branch SOPs, written "
+        "in Urdu — translate the relevant facts, do not quote Urdu script back). "
+        "Reply in plain English, 2-4 short sentences, numbers in western digits. "
+        "If the context does not contain the answer, say you do not have this information "
+        "and to consult the Branch Operations Manager. Never invent policy numbers or "
+        "amounts. End with: Source: followed by the source title(s) you used."
+    ),
+}
+
+Lang = str  # "ur" | "en"
+
+
+class RahbarSource(BaseModel):
     title: str
     source: str
     score: float
 
 
-class SaathiAnswer(BaseModel):
-    answer_ur: str
-    sources: list[SaathiSource]
+class RahbarAnswer(BaseModel):
+    answer: str
+    lang: Lang
+    sources: list[RahbarSource]
 
 
 class ChatClient(Protocol):  # the sliver of groq.Groq we use
@@ -64,7 +112,7 @@ class ChatClient(Protocol):  # the sliver of groq.Groq we use
 
 @lru_cache(maxsize=1)
 def load_corpus() -> list[dict[str, Any]]:
-    raw = json.loads((Path(__file__).parent / "saathi_corpus.json").read_text("utf-8"))
+    raw = json.loads((Path(__file__).parent / "rahbar_corpus.json").read_text("utf-8"))
     return raw["documents"]
 
 
@@ -127,7 +175,9 @@ def _client_factory() -> ChatClient:
     return Groq(api_key=settings.groq_api_key)
 
 
-def ask(question: str, client: ChatClient | None = None) -> SaathiAnswer:
+def ask(question: str, lang: Lang = "ur", client: ChatClient | None = None) -> RahbarAnswer:
+    if lang not in SYSTEM_PROMPTS:
+        raise ValueError(f"unsupported lang: {lang!r} (expected 'ur' or 'en')")
     hits = retrieve(question)
     client = client or _client_factory()
     context = "\n\n".join(
@@ -136,15 +186,16 @@ def ask(question: str, client: ChatClient | None = None) -> SaathiAnswer:
     resp = client.chat.completions.create(
         model=settings.groq_model,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": SYSTEM_PROMPTS[lang]},
             {"role": "user", "content": f"Context:\n{context}\n\nTeller question:\n{question}"},
         ],
         temperature=0.3,
         max_tokens=400,
     )
     answer = (resp.choices[0].message.content or "").strip()
-    return SaathiAnswer(
-        answer_ur=answer,
-        sources=[SaathiSource(title=h["title"], source=h["source"], score=h["score"])
+    return RahbarAnswer(
+        answer=answer,
+        lang=lang,
+        sources=[RahbarSource(title=h["title"], source=h["source"], score=h["score"])
                  for h in hits],
     )

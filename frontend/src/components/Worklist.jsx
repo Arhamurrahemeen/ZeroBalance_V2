@@ -9,7 +9,7 @@ export function StatusBadge({ status }) {
   return <span className={`badge status-${status}`}>{status}</span>;
 }
 
-export default function Worklist() {
+export default function Worklist({ lang = "ur" }) {
   const [selected, setSelected] = useState(null);
   const { data: sessions, isLoading, error } = useQuery({
     queryKey: ["sessions"],
@@ -64,7 +64,7 @@ export default function Worklist() {
         )}
       </section>
       {selected && (
-        <SessionDetail sessionId={selected} onClose={() => setSelected(null)} />
+        <SessionDetail sessionId={selected} onClose={() => setSelected(null)} lang={lang} />
       )}
     </div>
   );

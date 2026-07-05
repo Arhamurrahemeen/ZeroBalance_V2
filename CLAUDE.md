@@ -5,7 +5,7 @@ EOD cash-reconciliation co-pilot for bank tellers. Hackathon MVP (UBL National I
 ## Repo layout
 
 ```
-/backend      FastAPI app, matching engine, Gemini layer, Saathi RAG
+/backend      FastAPI app, matching engine, Groq layer, Rahbar RAG
 /frontend     React 18 + Vite + TanStack Query dashboard
 /data         Synthetic transaction generator + ground_truth.py (test oracle)
 /docs         EOD Recon Report template, schema notes
@@ -21,7 +21,7 @@ docker-compose.yml   Postgres 16 + Qdrant + backend + frontend
 | Matching | rapidfuzz + rule-based flags | Deterministic. Never replace with ML ranking |
 | Anomaly | scikit-learn Isolation Forest | SECONDARY signal only — can never override or re-rank rule flags |
 | AI explanation | Groq API (free tier) | Explains engine output post-hoc, in Urdu. NEVER decides, ranks, filters, or scores |
-| RAG (Saathi) | Qdrant | Static corpus, Urdu Q&A. No corpus-management UI, no live upload |
+| RAG (Rahbar) | Qdrant | Static corpus, Urdu Q&A. No corpus-management UI, no live upload |
 | Frontend | React 18 + Vite + TanStack Query | No Next.js, no SSR |
 | Infra | Docker Compose | All services run via compose from day one |
 
@@ -29,7 +29,7 @@ Do not add new dependencies, services, or frameworks without explicit approval i
 
 ## Architecture — LOCKED
 
-Flow: Teller Input → Matching Engine → Flag Engine → Gemini (explanation) → Dashboard → PostgreSQL audit ledger
+Flow: Teller Input → Matching Engine → Flag Engine → Groq (explanation) → Dashboard → PostgreSQL audit ledger
 
 Hard constraints:
 
@@ -42,13 +42,13 @@ Hard constraints:
 
 ## Build sequence & gates
 
-Order: requirements.txt → schema.sql → synthetic generator + ground_truth.py → matching engine → FastAPI routes → Groq explanation layer → Saathi → React dashboard → Recon Report PDF.
+Order: requirements.txt → schema.sql → synthetic generator + ground_truth.py → matching engine → FastAPI routes → Groq explanation layer → Rahbar → React dashboard → Recon Report PDF.
 
 Gates — do not start a later phase until the earlier gate passes:
 
 - **UI work is blocked** until the matching engine scores ≥90% on single-error and ≥70% on two-error cases against ground_truth.py.
 - ground_truth.py must cover all 6 variance signatures before engine tuning starts.
-- Saathi demo scope: static corpus (SBP circulars + SOP snippets), 10 pre-tested Urdu queries. Nothing beyond that.
+- Rahbar demo scope: static corpus (SBP circulars + SOP snippets), 10 pre-tested Urdu queries. Nothing beyond that.
 
 ## Phase workflow
 
@@ -65,7 +65,7 @@ Gates — do not start a later phase until the earlier gate passes:
 
 - Palette: ink `#1A1A18`, mocha `#8B7355`, cream `#FAF8F3`. Cream backgrounds, ink text, mocha accents.
 - Fonts: Cambria for headings, Calibri for body — with web-safe fallbacks: `Cambria, Georgia, serif` / `Calibri, 'Segoe UI', system-ui, sans-serif`.
-- UI language: English UI chrome; Groq explanations and Saathi answers render in Urdu (RTL-safe containers where Urdu text appears).
+- UI language: English UI chrome; Groq explanations and Rahbar answers render in Urdu (RTL-safe containers where Urdu text appears).
 - Dashboard views: exception worklist, ageing view, EOD Recon Report. Nothing else in MVP.
 
 ## Conventions

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, ValidationError
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .db import append_ledger, get_db, verify_ledger
 from .db_models import EodSessionRow
-from .saathi import SaathiAnswer
+from .rahbar import QueryPair, RahbarAnswer
 from .schemas import (
     HealthResponse,
     IngestMeta,
@@ -97,7 +97,8 @@ def resolve_session(session_id: int, body: ResolveRequest, db: DbDep) -> Session
 
 
 @router.post("/sessions/{session_id}/explain", response_model=SessionDetail)
-def explain_session(session_id: int, db: DbDep) -> SessionDetail:
+def explain_session(session_id: int, db: DbDep,
+                    lang: Literal["ur", "en"] = "ur", force: bool = False) -> SessionDetail:
     from .config import settings
     from .explain import explain_suspects
 
@@ -105,7 +106,7 @@ def explain_session(session_id: int, db: DbDep) -> SessionDetail:
     if not settings.groq_api_key or settings.groq_api_key.startswith("your-"):
         raise HTTPException(503, "GROQ_API_KEY not configured")
     try:
-        explain_suspects(db, row)
+        explain_suspects(db, row, lang=lang, force=force)
     except Exception as e:  # upstream/network failure must not corrupt state
         db.rollback()
         raise HTTPException(502, f"explanation service failed: {e}") from e
@@ -118,27 +119,28 @@ def ledger_verify(db: DbDep) -> LedgerVerifyOut:
     return LedgerVerifyOut(ok=ok, entries=entries, head=head)
 
 
-class SaathiAskRequest(BaseModel):
+class RahbarAskRequest(BaseModel):
     question: str
+    lang: Literal["ur", "en"] = "ur"
 
 
-@router.post("/saathi/ask", response_model=SaathiAnswer)
-def saathi_ask(body: SaathiAskRequest) -> SaathiAnswer:
+@router.post("/rahbar/ask", response_model=RahbarAnswer)
+def rahbar_ask(body: RahbarAskRequest) -> RahbarAnswer:
     from .config import settings
-    from .saathi import ask
+    from .rahbar import ask
 
     if not settings.groq_api_key or settings.groq_api_key.startswith("your-"):
         raise HTTPException(503, "GROQ_API_KEY not configured")
     if not body.question.strip():
         raise HTTPException(422, "question must not be empty")
     try:
-        return ask(body.question)
+        return ask(body.question, lang=body.lang)
     except Exception as e:
-        raise HTTPException(502, f"saathi failed: {e}") from e
+        raise HTTPException(502, f"rahbar failed: {e}") from e
 
 
-@router.get("/saathi/queries", response_model=list[str])
-def saathi_queries() -> list[str]:
-    from .saathi import SAMPLE_QUERIES
+@router.get("/rahbar/queries", response_model=list[QueryPair])
+def rahbar_queries() -> list[QueryPair]:
+    from .rahbar import sample_query_pairs
 
-    return SAMPLE_QUERIES
+    return sample_query_pairs()
