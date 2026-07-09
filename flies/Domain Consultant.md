@@ -2,6 +2,11 @@
 project: ZeroBalance
 type: domain
 updated: 2026-07-07
+status: reference
+tags:
+  - project/zerobalance
+  - type/domain
+  - status/reference
 ---
 
 # Domain Consultant — Khursheed Alam

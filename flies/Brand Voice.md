@@ -2,6 +2,11 @@
 project: ZeroBalance
 type: brand
 updated: 2026-07-07
+status: reference
+tags:
+  - project/zerobalance
+  - type/brand
+  - status/reference
 ---
 
 # Brand Voice & Visual Identity
@@ -9,9 +14,9 @@ updated: 2026-07-07
 ## Palette
 | Name | Hex |
 |---|---|
-| Ink | #1A1A18 |
-| Mocha | #8B7355 |
-| Cream | #FAF8F3 |
+| Ink | `#1A1A18` |
+| Mocha | `#8B7355` |
+| Cream | `#FAF8F3` |
 
 ## Fonts
 - Headings: Cambria

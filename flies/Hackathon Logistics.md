@@ -2,6 +2,11 @@
 project: ZeroBalance
 type: logistics
 updated: 2026-07-07
+status: reference
+tags:
+  - project/zerobalance
+  - type/logistics
+  - status/reference
 ---
 
 # Hackathon Logistics
