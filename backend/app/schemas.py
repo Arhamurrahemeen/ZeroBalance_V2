@@ -1,3 +1,6 @@
+from decimal import Decimal
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from .engine.models import Signature
@@ -53,4 +56,50 @@ class ResolveRequest(BaseModel):
 class LedgerVerifyOut(BaseModel):
     ok: bool
     entries: int
+    head: str
+
+
+# --- v2: Digital Excess Ledger --------------------------------------------
+
+
+class ExcessOpenRequest(BaseModel):
+    branch_code: str = Field(min_length=1)
+    teller_id: str = Field(min_length=1)
+    business_date: str = Field(min_length=10, max_length=10)  # ISO date
+    entry_kind: Literal["excess", "short"]
+    amount: Decimal = Field(gt=0)
+    opener: str = Field(min_length=1)
+    note: str | None = None
+
+
+class ExcessCountersignRequest(BaseModel):
+    officer: str = Field(min_length=1)
+
+
+class ExcessCloseRequest(BaseModel):
+    officer: str = Field(min_length=1)
+    resolution_note: str = Field(min_length=1)
+
+
+class ExcessCaseOut(BaseModel):
+    case_ref: str
+    branch_code: str
+    teller_id: str
+    business_date: str
+    entry_kind: Literal["excess", "short"]
+    amount: str
+    state: Literal["opened", "countersigned", "closed"]
+    opener: str
+    countersigner: str | None = None
+    closer: str | None = None
+    reason: str | None = None
+    resolution: str | None = None
+    opened_at: str
+    countersigned_at: str | None = None
+    closed_at: str | None = None
+
+
+class ExcessChainVerifyOut(BaseModel):
+    ok: bool
+    rows: int
     head: str
