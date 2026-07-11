@@ -10,8 +10,12 @@ from datetime import date
 
 from .db import append_ledger, get_db, verify_ledger
 from .db_models import EodSessionRow
+from . import cheque as cheque_svc
 from . import excess_ledger as excess
+from . import prepost as prepost_svc
 from .schemas import (
+    ChequeCaptureRequest,
+    ChequeOut,
     ExcessCaseOut,
     ExcessChainVerifyOut,
     ExcessCloseRequest,
@@ -20,6 +24,8 @@ from .schemas import (
     HealthResponse,
     IngestMeta,
     LedgerVerifyOut,
+    PrepostRequest,
+    PrepostResult,
     ResolveRequest,
     SessionDetail,
     SessionSummary,
@@ -207,3 +213,88 @@ def excess_register(
 def excess_verify_chain(db: DbDep) -> ExcessChainVerifyOut:
     ok, rows, head = excess.verify_chain(db)
     return ExcessChainVerifyOut(ok=ok, rows=rows, head=head)
+
+
+# --- v2: Cheque capture ---------------------------------------------------
+
+
+def _cheque_view_to_out(v: cheque_svc.ChequeView) -> ChequeOut:
+    return ChequeOut(
+        id=v.id, branch_code=v.branch_code, teller_id=v.teller_id,
+        business_date=v.business_date, micr=v.micr,
+        account_number=v.account_number, amount=v.amount,
+        denomination_out=v.denomination_out, captured_at=v.captured_at,
+    )
+
+
+@router.post("/cheque", response_model=ChequeOut, status_code=201)
+def cheque_capture(body: ChequeCaptureRequest, db: DbDep) -> ChequeOut:
+    try:
+        row = cheque_svc.capture(
+            db, branch_code=body.branch_code, teller_id=body.teller_id,
+            business_date=date.fromisoformat(body.business_date),
+            micr=body.micr, account_number=body.account_number,
+            amount=body.amount, denomination_out=body.denomination_out,
+        )
+    except cheque_svc.ChequeError as e:
+        db.rollback()
+        raise HTTPException(422, str(e)) from e
+    return _cheque_view_to_out(cheque_svc._view(row))
+
+
+@router.get("/cheque", response_model=list[ChequeOut])
+def cheque_list(
+    db: DbDep, from_date: str, to_date: str, branch: str | None = None,
+) -> list[ChequeOut]:
+    try:
+        f = date.fromisoformat(from_date)
+        t = date.fromisoformat(to_date)
+    except ValueError as e:
+        raise HTTPException(422, f"bad date: {e}") from e
+    if f > t:
+        raise HTTPException(422, "from_date must be <= to_date")
+    return [_cheque_view_to_out(v)
+            for v in cheque_svc.list_captures(db, from_date=f, to_date=t, branch_code=branch)]
+
+
+# --- v2: Pre-post validation (DEMO-ONLY SURFACE) --------------------------
+# Not wired into any real CBS write path. Endpoints exist for the UI screen
+# to fire them on typed input. See CLAUDE.md hard-constraint #6.
+
+
+def _run_prepost(
+    db: Session, check_name: prepost_svc.CheckName, body: PrepostRequest,
+) -> PrepostResult:
+    try:
+        passed, reason = prepost_svc.run_check(
+            db, teller_id=body.teller_id, check_name=check_name, inp=body.input,
+        )
+    except prepost_svc.PrepostError as e:
+        db.rollback()
+        raise HTTPException(422, str(e)) from e
+    return PrepostResult(check_name=check_name, passed=passed, reason=reason)
+
+
+@router.post("/prepost/denom-sum", response_model=PrepostResult)
+def prepost_denom_sum(body: PrepostRequest, db: DbDep) -> PrepostResult:
+    return _run_prepost(db, "denom_sum", body)
+
+
+@router.post("/prepost/cnic-name-match", response_model=PrepostResult)
+def prepost_cnic_name_match(body: PrepostRequest, db: DbDep) -> PrepostResult:
+    return _run_prepost(db, "cnic_name_match", body)
+
+
+@router.post("/prepost/duplicate-check", response_model=PrepostResult)
+def prepost_duplicate_check(body: PrepostRequest, db: DbDep) -> PrepostResult:
+    return _run_prepost(db, "duplicate_check", body)
+
+
+@router.post("/prepost/large-amount-confirm", response_model=PrepostResult)
+def prepost_large_amount_confirm(body: PrepostRequest, db: DbDep) -> PrepostResult:
+    return _run_prepost(db, "large_amount_confirm", body)
+
+
+@router.post("/prepost/sanity", response_model=PrepostResult)
+def prepost_sanity(body: PrepostRequest, db: DbDep) -> PrepostResult:
+    return _run_prepost(db, "sanity", body)

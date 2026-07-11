@@ -103,3 +103,45 @@ class ExcessChainVerifyOut(BaseModel):
     ok: bool
     rows: int
     head: str
+
+
+# --- v2: Cheque capture ---------------------------------------------------
+
+
+class ChequeCaptureRequest(BaseModel):
+    branch_code: str = Field(min_length=1)
+    teller_id: str = Field(min_length=1)
+    business_date: str = Field(min_length=10, max_length=10)
+    micr: str = Field(min_length=1)
+    account_number: str = Field(min_length=1)
+    amount: Decimal = Field(gt=0)
+    denomination_out: dict[str, int]
+
+
+class ChequeOut(BaseModel):
+    id: int
+    branch_code: str
+    teller_id: str
+    business_date: str
+    micr: str
+    account_number: str
+    amount: str
+    denomination_out: dict[str, int]
+    captured_at: str
+
+
+# --- v2: Pre-post validation (demo-only surface) --------------------------
+
+
+class PrepostRequest(BaseModel):
+    teller_id: str = Field(min_length=1)
+    input: dict
+
+
+class PrepostResult(BaseModel):
+    check_name: Literal[
+        "denom_sum", "cnic_name_match", "duplicate_check",
+        "large_amount_confirm", "sanity",
+    ]
+    passed: bool
+    reason: str | None = None
