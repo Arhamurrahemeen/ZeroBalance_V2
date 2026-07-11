@@ -1,8 +1,8 @@
-# Continuous Reconciliation — Design
+# Continuous Reconciliation — Design (ZeroBalance v3)
 
 **Date:** 2026-07-09
-**Project:** ZeroBalance (fresh exploration — deliberately unconstrained by v2 MVP scoping decisions)
-**Status:** Draft — awaiting review, not committed
+**Project:** ZeroBalance **v3** (fresh exploration — deliberately unconstrained by v2 MVP scoping decisions)
+**Status:** Approved 2026-07-09 — not yet committed
 
 ---
 

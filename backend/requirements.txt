@@ -6,7 +6,6 @@ sqlalchemy==2.0.41
 psycopg[binary]==3.2.9
 rapidfuzz==3.13.0
 scikit-learn==1.6.1
-qdrant-client[fastembed]==1.14.2
 groq==0.26.0
 python-multipart==0.0.20
 pytest==8.3.5

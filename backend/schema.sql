@@ -89,3 +89,83 @@ CREATE TABLE recon_reports (
     ledger_hash  TEXT        NOT NULL,     -- entry_hash of ledger head when generated
     generated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ============================================================================
+-- v2 additions — do not modify v1 tables above destructively.
+-- Features: opening float declaration, digital excess ledger, cheque capture,
+-- pre-post validation log.
+-- ============================================================================
+
+-- Day-start denomination declaration (bulk cash from OM has no denomination —
+-- this is where the audit trail actually starts). One row per teller per day.
+CREATE TABLE opening_float_declaration (
+    id             BIGSERIAL PRIMARY KEY,
+    branch_code    TEXT           NOT NULL,
+    teller_id      TEXT           NOT NULL,
+    business_date  DATE           NOT NULL,
+    denominations  JSONB          NOT NULL,     -- {"5000": 10, "1000": 50, ...}
+    total_amount   NUMERIC(14, 2) NOT NULL CHECK (total_amount > 0),
+    signed_by      TEXT           NOT NULL,
+    signed_at      TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    UNIQUE (branch_code, teller_id, business_date)
+);
+
+-- Digital Excess Ledger — flagship v2 feature.
+-- Append-only event table. Each row is a state event on a case_ref.
+-- Dual sign-off = ('opened' by teller) + ('countersigned' by different actor).
+-- Close requires prior countersign. State-machine rules enforced in service layer.
+-- Hash chain is GLOBAL across the table (matches audit_ledger pattern).
+CREATE TABLE excess_ledger (
+    id             BIGSERIAL PRIMARY KEY,
+    case_ref       UUID           NOT NULL,     -- shared across events of one entry
+    event_seq      INTEGER        NOT NULL CHECK (event_seq >= 1),
+    event_type     TEXT           NOT NULL CHECK (event_type IN (
+                       'opened', 'countersigned', 'closed')),
+    branch_code    TEXT           NOT NULL,
+    teller_id      TEXT           NOT NULL,
+    business_date  DATE           NOT NULL,
+    entry_kind     TEXT           NOT NULL CHECK (entry_kind IN ('excess', 'short')),
+    amount         NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+    actor          TEXT           NOT NULL,     -- teller_id for opened; officer_id for countersigned/closed
+    note           TEXT,                        -- reason on open; resolution on close
+    at             TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    prev_hash      TEXT           NOT NULL,     -- entry_hash of previous row ('GENESIS' for first)
+    entry_hash     TEXT           NOT NULL UNIQUE,
+    UNIQUE (case_ref, event_seq)
+);
+CREATE INDEX idx_excess_ledger_case ON excess_ledger (case_ref);
+CREATE INDEX idx_excess_ledger_date ON excess_ledger (business_date);
+
+CREATE TRIGGER excess_ledger_append_only
+    BEFORE UPDATE OR DELETE ON excess_ledger
+    FOR EACH ROW EXECUTE FUNCTION forbid_ledger_mutation();
+
+-- Cheque capture — sidecar artifact (parallel to CBS, not in its write path).
+-- Denomination-out breakdown must sum to amount (enforced in service layer).
+CREATE TABLE cheque_transactions (
+    id                BIGSERIAL PRIMARY KEY,
+    branch_code       TEXT           NOT NULL,
+    teller_id         TEXT           NOT NULL,
+    business_date     DATE           NOT NULL,
+    micr              TEXT           NOT NULL,     -- MICR line as captured
+    account_number    TEXT           NOT NULL,
+    amount            NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+    denomination_out  JSONB          NOT NULL,     -- {"5000": 10, "1000": 50, ...}
+    captured_at       TIMESTAMPTZ    NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_cheque_teller_date ON cheque_transactions (teller_id, business_date);
+
+-- Pre-post validation log — feeds the demo screen. NOT wired to CBS write path.
+-- Each row records one check firing on typed input. Not append-only.
+CREATE TABLE validation_log (
+    id             BIGSERIAL PRIMARY KEY,
+    teller_id      TEXT           NOT NULL,
+    check_name     TEXT           NOT NULL CHECK (check_name IN (
+                       'denom_sum', 'cnic_name_match', 'duplicate_check',
+                       'large_amount_confirm', 'sanity')),
+    input_hash     TEXT           NOT NULL,     -- SHA-256 of input payload
+    passed         BOOLEAN        NOT NULL,
+    failed_reason  TEXT,
+    checked_at     TIMESTAMPTZ    NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_validation_log_teller ON validation_log (teller_id, checked_at);

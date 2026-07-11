@@ -1,38 +1,49 @@
 <p align="center">
-  <img src="assets/zerobalance-banner.svg" alt="ZeroBalance — EOD Cash-Reconciliation Co-pilot" width="100%"/>
+  <img src="assets/zerobalance-banner.svg" alt="ZeroBalance — Back-office Validation & Reconciliation Layer for Bank Tellers" width="100%"/>
 </p>
 
-# ZeroBalance — EOD Cash-Reconciliation Co-pilot
+# ZeroBalance v2 — Back-office Validation & Reconciliation Layer
 
-> When a teller's till doesn't balance, someone still opens the ledger by hand and starts guessing.
-> I built the part that shouldn't be manual anymore.
+> **CBS posts what the teller types. ZeroBalance makes sure the teller typed the truth.**
 
-I built this for the UBL National Innovation Hackathon. The problem: a teller's till doesn't balance at end of day, and someone has to comb through the day's transactions to figure out why. ZeroBalance does that instead — it takes the CBS transaction export (PIBAS CSV) plus the teller's single denomination count, and runs both through a **deterministic rule engine** that pinpoints the likely culprit transactions: digit transpositions, duplicate postings, missed reversals, denomination shortfalls, cash-in/out miskeys, wrong-account postings. It ranks the top 3–5 suspects with exact cash-delta evidence, not a confidence score pulled out of nowhere.
+Overlay on top of the bank's core banking system (PIBAS / T24 / Symbols). On-prem. Not a replacement — a sidecar that catches errors before they hit CBS, reconciles physical cash against CBS records at EOD, and replaces corruption-prone paper artifacts (the Excess Ledger) with a signed, hash-chained digital audit trail.
 
-Groq explains each pick **post-hoc, in Urdu**. It never decides or ranks anything — it just narrates what the engine already found. Every action lands in an append-only, hash-chained audit ledger, so nothing gets rewritten quietly after the fact. Rahbar, a Qdrant-RAG side assistant, answers SOP and circular questions in Urdu from a static demo corpus.
+Two audit cadences from **one artifact set**: daily EOD certification + half-yearly closing (same tables, different query window).
 
-Flow: `Teller input → Matching engine → Flag engine → Groq (explanation) → Dashboard → Postgres audit ledger`
+Built for the UBL National Innovation Hackathon (Fintech Track).
+
+## Feature set (locked)
+
+| # | Feature | Overlay posture | Build scope |
+|---|---|---|---|
+| 1 | Digital Excess Ledger + dual sign-off + audit hash | Sidecar | **Full — flagship** |
+| 2 | EOD recon (opening float → engine → ranked culprits → signed PDF) | Monitor (reads PIBAS CSV) | Full |
+| 3 | Cheque capture (MICR + denomination-out breakdown) | Sidecar | Full |
+| 4 | Pre-post real-time validation (5 checks) | Intercept | Demo-only surface |
+
+Pre-post is the only feature that sits in front of CBS — that's why it stays a marketing surface, not a wired production intercept.
+
+## Architecture
+
+Flow: `Teller Input → [Pre-post demo checks] → Matching Engine → Flag Engine → Groq (Urdu explanation) → Dashboard → PostgreSQL audit ledger`
+
+Sidecar artifacts (parallel to CBS, not in its write path): **Digital Excess Ledger** and **cheque capture** — separately hashed and signed.
+
+- **Deterministic engine.** Rule-based variance-signature detection: digit transposition, duplicate posting, missed reversal, denomination shortfall, cash-in/out miskey, wrong adjacent account. Every ranking reproducible and rule-explainable. No learned ranking anywhere.
+- **Groq explains, never decides.** Post-hoc Urdu narration of already-ranked suspects. Never scores, filters, or re-ranks.
+- **Append-only ledgers.** Audit ledger *and* Excess Ledger. Dual sign-off = two INSERT rows, not an UPDATE.
+- **On-prem.** No cloud services beyond the Groq API call. No customer data in external logs.
 
 <p align="center">
   <img src="assets/zerobalance-flow.svg" alt="ZeroBalance pipeline diagram" width="100%"/>
 </p>
 
-## Development summary
+## Version history
 
-Built in 8 gated phases (details in `/phases/phase_<n>.md`):
+- **v2 (Jul 2026)** — Fork from v1. Added Digital Excess Ledger (flagship), cheque capture, pre-post demo surface. Cut Rahbar/Qdrant RAG (no user-need evidence) and the ageing view (BOM-tier scope). See `phases/v2_plan.md`.
+- **v1** — EOD reconciliation co-pilot only. Frozen at `D:\ZeroBalance`.
 
-| Phase | Delivered |
-|---|---|
-| 1 | Repo scaffold, requirements, Postgres schema (append-only ledger trigger), Docker Compose |
-| 2 | Synthetic PIBAS generator + `ground_truth.py` oracle — 160 labeled cases, all 6 variance signatures |
-| 3 | Matching engine — **gate: 100% single-error / 92.5% two-error** (required 90/70); Isolation Forest as display-only signal |
-| 4 | FastAPI routes: ingest, worklist, resolve, hash-chained ledger + verify |
-| 5 | Groq explanation layer — Urdu, post-hoc only, masked account numbers |
-| 6 | Rahbar — Qdrant RAG, 16-snippet synthetic Urdu corpus, 10 pre-tested queries (10/10 retrieval) |
-| 7 | React dashboard — worklist, ageing, recon report views + ingest modal + Rahbar drawer |
-| 8 | EOD Recon Report PDF (WeasyPrint) carrying the audit-ledger head hash |
-
-40 backend tests: engine oracle, API e2e, explain invariants, Rahbar retrieval, PDF/ledger bookkeeping. I didn't ship a phase without its gate passing.
+v1 delivery log: `phases/phase_1.md` → `phases/phase_8.md`.
 
 ## Project structure
 
@@ -43,16 +54,15 @@ backend/            FastAPI (Python 3.12)
     api.py          REST routes under /api/v1
     service.py      PIBAS CSV parsing + recon orchestration
     explain.py      Groq Urdu explanations (post-hoc)
-    rahbar.py       Qdrant RAG Q&A (+ rahbar_corpus.json)
-    report.py       Recon Report PDF
+    report.py       Recon Report PDF (WeasyPrint)
     db.py           hash-chained append-only audit ledger
-  schema.sql        Postgres DDL (ledger UPDATE/DELETE blocked by trigger)
+  schema.sql        Postgres DDL (append-only enforced by trigger)
   tests/            pytest suite (oracle-backed)
 frontend/           React 18 + Vite + TanStack Query dashboard
-data/               synthetic generator + ground_truth.py (test oracle)
-docs/               PIBAS CSV format, Rahbar query list
-phases/             per-phase plan + what was achieved
-docker-compose.yml  Postgres 16 · Qdrant · backend · frontend
+data/               synthetic PIBAS generator + ground_truth.py oracle
+docs/               PIBAS CSV format spec
+phases/             v1 delivery log + v2 plan and per-phase files
+docker-compose.yml  Postgres 16 + backend + frontend
 ```
 
 ## Run it
@@ -60,9 +70,6 @@ docker-compose.yml  Postgres 16 · Qdrant · backend · frontend
 Prerequisites: Docker Desktop, a free [Groq API key](https://console.groq.com).
 
 ```bash
-git clone https://github.com/Arhamurrahemeen/ZeroBalance_MVP.git
-cd ZeroBalance_MVP
-
 cp .env.example .env        # then set GROQ_API_KEY
 docker compose up -d --build
 ```
@@ -73,16 +80,14 @@ docker compose up -d --build
 Seed demo data (one flagged session per variance signature):
 
 ```bash
-python data/generator.py --out data/sample     # writes demo CSVs + meta JSON
+python data/generator.py --out data/sample
 ```
-
-Then in the dashboard: **+ New EOD Session** → pick a `data/sample/demo_*.csv`, paste its `*_meta.json` into the meta shortcut → **Ingest & reconcile**. Click the flagged row for ranked suspects, **Explain in Urdu**, and the **EOD Recon Report** tab for the printable/PDF report.
 
 Tests (in-container; truncates the dev DB):
 
 ```bash
-docker compose exec backend pytest -q          # 40 tests
-python data/ground_truth.py                    # oracle self-check (host Python ok)
+docker compose exec backend pytest -q
+python data/ground_truth.py                    # oracle self-check
 ```
 
 The engine decides. Groq just explains. That split is the whole point.

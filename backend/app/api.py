@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from .db import append_ledger, get_db, verify_ledger
 from .db_models import EodSessionRow
-from .rahbar import QueryPair, RahbarAnswer
 from .schemas import (
     HealthResponse,
     IngestMeta,
@@ -117,30 +116,3 @@ def explain_session(session_id: int, db: DbDep,
 def ledger_verify(db: DbDep) -> LedgerVerifyOut:
     ok, entries, head = verify_ledger(db)
     return LedgerVerifyOut(ok=ok, entries=entries, head=head)
-
-
-class RahbarAskRequest(BaseModel):
-    question: str
-    lang: Literal["ur", "en"] = "ur"
-
-
-@router.post("/rahbar/ask", response_model=RahbarAnswer)
-def rahbar_ask(body: RahbarAskRequest) -> RahbarAnswer:
-    from .config import settings
-    from .rahbar import ask
-
-    if not settings.groq_api_key or settings.groq_api_key.startswith("your-"):
-        raise HTTPException(503, "GROQ_API_KEY not configured")
-    if not body.question.strip():
-        raise HTTPException(422, "question must not be empty")
-    try:
-        return ask(body.question, lang=body.lang)
-    except Exception as e:
-        raise HTTPException(502, f"rahbar failed: {e}") from e
-
-
-@router.get("/rahbar/queries", response_model=list[QueryPair])
-def rahbar_queries() -> list[QueryPair]:
-    from .rahbar import sample_query_pairs
-
-    return sample_query_pairs()
