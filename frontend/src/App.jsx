@@ -1,22 +1,22 @@
 import { useState } from "react";
-import Ageing from "./components/Ageing.jsx";
+import ChequeCapture from "./components/ChequeCapture.jsx";
+import ExcessLedger from "./components/ExcessLedger.jsx";
 import IngestModal from "./components/IngestModal.jsx";
-import Report from "./components/Report.jsx";
-import Rahbar from "./components/Rahbar.jsx";
+import PrepostDemo from "./components/PrepostDemo.jsx";
 import Worklist from "./components/Worklist.jsx";
 
 const TABS = [
-  ["worklist", "Exception Worklist"],
-  ["ageing", "Ageing"],
-  ["report", "EOD Recon Report"],
+  ["excess", "Excess Ledger"],
+  ["eod", "EOD Recon Report"],
+  ["cheque", "Cheque Capture"],
+  ["prepost", "Pre-post Demo"],
 ];
 
 export default function App() {
-  const [tab, setTab] = useState("worklist");
+  const [tab, setTab] = useState("excess");
   const [showIngest, setShowIngest] = useState(false);
-  const [showRahbar, setShowRahbar] = useState(false);
-  // Shared EN/UR toggle for Rahbar chat + Groq exception explanations.
-  // The EOD Recon Report stays fixed English regardless of this — separate audience.
+  // Shared EN/UR toggle for every Groq explanation surface (EOD suspects,
+  // Excess Ledger case explain, cheque variance explain).
   const [lang, setLang] = useState("ur");
 
   return (
@@ -24,7 +24,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <span className="brand-zero">Zero</span>Balance
-          <span className="brand-sub">EOD Recon Co-pilot</span>
+          <span className="brand-sub">Bank-teller back-office overlay</span>
         </div>
         <nav className="tabs">
           {TABS.map(([id, label]) => (
@@ -38,7 +38,7 @@ export default function App() {
           ))}
         </nav>
         <div className="topbar-actions">
-          <div className="lang-toggle" title="Rahbar & explanation language">
+          <div className="lang-toggle" title="Groq explanation language">
             <button
               className={lang === "ur" ? "btn ghost active" : "btn ghost"}
               onClick={() => setLang("ur")}
@@ -52,25 +52,22 @@ export default function App() {
               EN
             </button>
           </div>
-          <button className="btn primary" onClick={() => setShowIngest(true)}>
-            + New EOD Session
-          </button>
-          <button className="btn ghost" onClick={() => setShowRahbar((s) => !s)}>
-            رہبر Rahbar
-          </button>
+          {tab === "eod" && (
+            <button className="btn primary" onClick={() => setShowIngest(true)}>
+              + New EOD Session
+            </button>
+          )}
         </div>
       </header>
 
       <main className="content">
-        {tab === "worklist" && <Worklist lang={lang} />}
-        {tab === "ageing" && <Ageing />}
-        {tab === "report" && <Report />}
+        {tab === "excess" && <ExcessLedger lang={lang} />}
+        {tab === "eod" && <Worklist lang={lang} />}
+        {tab === "cheque" && <ChequeCapture lang={lang} />}
+        {tab === "prepost" && <PrepostDemo />}
       </main>
 
       {showIngest && <IngestModal onClose={() => setShowIngest(false)} />}
-      {showRahbar && (
-        <Rahbar onClose={() => setShowRahbar(false)} lang={lang} onLangChange={setLang} />
-      )}
     </div>
   );
 }

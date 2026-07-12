@@ -42,6 +42,11 @@ class MicrAccountMismatch(ChequeError):
     pass
 
 
+class NoVarianceError(ChequeError):
+    """Raised by the explain layer when asked to explain a cheque that
+    actually passes validation — there is no variance to explain."""
+
+
 # --- MICR ------------------------------------------------------------------
 
 # The last block wrapped in ⑆ ... ⑆ is the account number.
@@ -54,6 +59,41 @@ def extract_micr_account(micr: str) -> str | None:
     if not matches:
         return None
     return matches[-1].strip()
+
+
+# --- Variance (explain-only, no DB / no insert) -----------------------------
+
+
+@dataclass(frozen=True)
+class ChequeVariance:
+    mismatch_types: list[str]  # "denom_sum" and/or "micr_account"
+    denom_sum_total: str
+    amount: str
+    micr_account: str | None
+    account_number: str
+
+
+def describe_variance(
+    *, micr: str, account_number: str, amount: Decimal,
+    denomination_out: dict[str, int],
+) -> ChequeVariance | None:
+    """Pure check mirroring capture()'s validation, without DB access or
+    insert side effects. Returns None if the cheque is valid (nothing to
+    explain); otherwise the mismatch detail for the explanation layer."""
+    mismatch_types: list[str] = []
+    total = _sum_denominations(denomination_out)
+    if total != amount:
+        mismatch_types.append("denom_sum")
+    micr_account = extract_micr_account(micr)
+    if not micr_account or micr_account != account_number:
+        mismatch_types.append("micr_account")
+    if not mismatch_types:
+        return None
+    return ChequeVariance(
+        mismatch_types=mismatch_types, denom_sum_total=f"{total:.2f}",
+        amount=f"{amount:.2f}", micr_account=micr_account,
+        account_number=account_number,
+    )
 
 
 # --- Capture ---------------------------------------------------------------

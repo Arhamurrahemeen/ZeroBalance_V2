@@ -102,7 +102,7 @@ Gates — do not start a later phase until the earlier gate passes:
 - **v2 phases start at `phase_9.md`.** `phase_1.md` through `phase_8.md` are v1 delivery log — do not edit.
 - v2 roadmap index lives at `/phases/v2_plan.md`.
 
-## Progress (as of Jul 11 2026)
+## Progress (as of Jul 12 2026)
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -110,17 +110,23 @@ Gates — do not start a later phase until the earlier gate passes:
 | 10 | Schema v2 (4 new tables) + `ground_truth_v2.py` (20 scenarios) | **Done** — `phases/phase_10.md` |
 | 11 | Digital Excess Ledger backend (flagship) — 5 endpoints, hash chain, dual sign-off | **Done** — `phases/phase_11.md` |
 | 12 | Cheque capture + pre-post demo endpoints — 7 endpoints total | **Done** — `phases/phase_12.md` |
-| 13 | Groq Urdu extensions (Excess Ledger + cheque variance) + Excess Ledger Daily Register PDF | **Next** |
-| 14 | Frontend v2 (4 screens) | Blocked on 13. Wahaj owns. |
-| 15 | Integration + demo dry run | Blocked on 14. |
+| 13 | Groq Urdu extensions (Excess Ledger + cheque variance) + Excess Ledger Daily Register PDF | **Done** — `phases/phase_13.md` |
+| 14 | Frontend v2 (4 screens) | **Done** — `phases/phase_14.md`. Built by Claude on explicit user instruction, ahead of the original "Wahaj owns" handoff — see that file's ownership note. No browser-automation tool was available to visually verify the UI; contracts were smoke-tested live against the backend instead. |
+| 15 | Integration + demo dry run | **Done** — `phases/phase_15.md`. Clean-state bring-up + full demo sequence run twice via the API (no browser tool available for a human-timed rehearsal — flagged as a founder follow-up). |
 
-**Verified before advancing** (user's local Postgres): all tests through the completed phase must pass under `docker compose exec backend pytest -q`. Do not start a later phase without that gate.
+**Verified before advancing** (user's local Postgres): all tests through the completed phase must pass under `docker compose exec backend pytest -q`. Do not start a later phase without that gate. Full suite as of Phase 15: **78 passed**, confirmed on a from-scratch `docker compose down -v && up --build`.
 
 **Public API so far** (v2 additions under `/api/v1`):
 
-- `POST /excess-ledger/open`, `POST /excess-ledger/{case_ref}/countersign`, `POST /excess-ledger/{case_ref}/close`, `GET /excess-ledger?from_date=&to_date=&branch=`, `GET /excess-ledger/verify-chain`
-- `POST /cheque`, `GET /cheque?from_date=&to_date=&branch=`
+- `POST /excess-ledger/open`, `POST /excess-ledger/{case_ref}/countersign`, `POST /excess-ledger/{case_ref}/close`, `GET /excess-ledger?from_date=&to_date=&branch=`, `GET /excess-ledger/verify-chain`, `POST /excess-ledger/{case_ref}/explain`, `GET /excess-ledger/report.pdf?from_date=&to_date=&branch=`
+- `POST /cheque`, `GET /cheque?from_date=&to_date=&branch=`, `POST /cheque/explain`
 - `POST /prepost/denom-sum`, `/cnic-name-match`, `/duplicate-check`, `/large-amount-confirm`, `/sanity`
+
+**Outstanding founder follow-ups (not code — see `phases/phase_15.md` for detail):**
+
+- Manual browser pass of all 4 screens (devtools open, check console/RTL Urdu rendering) — no browser-automation tool exists in this environment.
+- One timed human dress rehearsal of the pitch demo, under 5 minutes.
+- Anti-delusion guardrail carries forward unchanged: still n=1 teller interviews (Khursheed) as of this update; Session 6 (Jul 13) is the window CLAUDE.md flags as closing.
 
 ## Testing
 

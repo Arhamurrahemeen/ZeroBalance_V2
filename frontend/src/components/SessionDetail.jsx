@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { explainSession, getSession, resolveSession } from "../api.js";
+import { BASE, explainSession, getSession, resolveSession } from "../api.js";
 import { StatusBadge, pkr } from "./Worklist.jsx";
 
 const SIGNATURE_LABELS = {
@@ -105,6 +105,10 @@ export default function SessionDetail({ sessionId, onClose, lang = "ur" }) {
                 : `Explain in ${lang === "ur" ? "Urdu" : "English"}`}
           </button>
         )}
+        <a className="btn" href={`${BASE}/sessions/${s.id}/report.pdf`}
+           target="_blank" rel="noreferrer">
+          Download signed PDF
+        </a>
         {(s.status === "flagged" || s.status === "open") && (
           <span className="resolve-row">
             <input

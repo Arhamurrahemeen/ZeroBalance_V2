@@ -105,6 +105,16 @@ class ExcessChainVerifyOut(BaseModel):
     head: str
 
 
+class ExcessExplainRequest(BaseModel):
+    lang: Literal["ur", "en"] = "ur"
+
+
+class ExcessExplainOut(BaseModel):
+    case_ref: str
+    lang: Literal["ur", "en"]
+    explanation: str
+
+
 # --- v2: Cheque capture ---------------------------------------------------
 
 
@@ -128,6 +138,23 @@ class ChequeOut(BaseModel):
     amount: str
     denomination_out: dict[str, int]
     captured_at: str
+
+
+class ChequeExplainRequest(BaseModel):
+    branch_code: str = Field(min_length=1)
+    teller_id: str = Field(min_length=1)
+    business_date: str = Field(min_length=10, max_length=10)
+    micr: str = Field(min_length=1)
+    account_number: str = Field(min_length=1)
+    amount: Decimal = Field(gt=0)
+    denomination_out: dict[str, int]
+    lang: Literal["ur", "en"] = "ur"
+
+
+class ChequeExplainOut(BaseModel):
+    lang: Literal["ur", "en"]
+    explanation: str
+    mismatch_types: list[str]
 
 
 # --- v2: Pre-post validation (demo-only surface) --------------------------

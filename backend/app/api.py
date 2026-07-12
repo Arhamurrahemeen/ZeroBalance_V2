@@ -15,11 +15,15 @@ from . import excess_ledger as excess
 from . import prepost as prepost_svc
 from .schemas import (
     ChequeCaptureRequest,
+    ChequeExplainRequest,
+    ChequeExplainOut,
     ChequeOut,
     ExcessCaseOut,
     ExcessChainVerifyOut,
     ExcessCloseRequest,
     ExcessCountersignRequest,
+    ExcessExplainRequest,
+    ExcessExplainOut,
     ExcessOpenRequest,
     HealthResponse,
     IngestMeta,
@@ -215,6 +219,45 @@ def excess_verify_chain(db: DbDep) -> ExcessChainVerifyOut:
     return ExcessChainVerifyOut(ok=ok, rows=rows, head=head)
 
 
+@router.get("/excess-ledger/report.pdf")
+def excess_register_pdf(
+    db: DbDep, from_date: str, to_date: str, branch: str | None = None,
+) -> Response:
+    from .report import generate_excess_register_pdf
+
+    try:
+        f = date.fromisoformat(from_date)
+        t = date.fromisoformat(to_date)
+    except ValueError as e:
+        raise HTTPException(422, f"bad date: {e}") from e
+    if f > t:
+        raise HTTPException(422, "from_date must be <= to_date")
+    pdf = generate_excess_register_pdf(db, from_date=f, to_date=t, branch=branch)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition":
+                 f'inline; filename="excess_register_{from_date}_{to_date}.pdf"'},
+    )
+
+
+@router.post("/excess-ledger/{case_ref}/explain", response_model=ExcessExplainOut)
+def excess_explain(case_ref: str, body: ExcessExplainRequest, db: DbDep) -> ExcessExplainOut:
+    from .config import settings
+    from .explain import explain_excess_case
+
+    if not settings.groq_api_key or settings.groq_api_key.startswith("your-"):
+        raise HTTPException(503, "GROQ_API_KEY not configured")
+    try:
+        text = explain_excess_case(db, case_ref, lang=body.lang)
+    except excess.CaseNotFound as e:
+        raise HTTPException(404, str(e)) from e
+    except Exception as e:  # upstream/network failure must not corrupt state
+        db.rollback()
+        raise HTTPException(502, f"explanation service failed: {e}") from e
+    return ExcessExplainOut(case_ref=case_ref, lang=body.lang, explanation=text)
+
+
 # --- v2: Cheque capture ---------------------------------------------------
 
 
@@ -255,6 +298,33 @@ def cheque_list(
         raise HTTPException(422, "from_date must be <= to_date")
     return [_cheque_view_to_out(v)
             for v in cheque_svc.list_captures(db, from_date=f, to_date=t, branch_code=branch)]
+
+
+@router.post("/cheque/explain", response_model=ChequeExplainOut)
+def cheque_explain(body: ChequeExplainRequest, db: DbDep) -> ChequeExplainOut:
+    from .config import settings
+    from .explain import explain_cheque_variance
+
+    if not settings.groq_api_key or settings.groq_api_key.startswith("your-"):
+        raise HTTPException(503, "GROQ_API_KEY not configured")
+    try:
+        result = explain_cheque_variance(
+            db, branch_code=body.branch_code, teller_id=body.teller_id,
+            business_date=date.fromisoformat(body.business_date),
+            micr=body.micr, account_number=body.account_number,
+            amount=body.amount, denomination_out=body.denomination_out,
+            lang=body.lang,
+        )
+    except cheque_svc.NoVarianceError as e:
+        raise HTTPException(409, str(e)) from e
+    except cheque_svc.ChequeError as e:
+        raise HTTPException(422, str(e)) from e
+    except Exception as e:  # upstream/network failure must not corrupt state
+        db.rollback()
+        raise HTTPException(502, f"explanation service failed: {e}") from e
+    return ChequeExplainOut(
+        lang=body.lang, explanation=result.text, mismatch_types=result.mismatch_types,
+    )
 
 
 # --- v2: Pre-post validation (DEMO-ONLY SURFACE) --------------------------

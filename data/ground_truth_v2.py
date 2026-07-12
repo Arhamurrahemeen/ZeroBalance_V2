@@ -137,6 +137,25 @@ def _excess_scenarios() -> list[ExcessScenario]:
             expected_outcome="rejected_out_of_order",
             rejects_at_seq=1,
         ),
+        # 7. Happy path with an account number + CNIC typed into the free-text
+        # note — Phase 13 masking oracle. The note is exactly the kind of
+        # string a teller might actually type ("checked against account X").
+        ExcessScenario(
+            case_id="excess_happy_note_with_pii",
+            case_ref="77777777-7777-4777-8777-777777777777",
+            branch_code="UBL-KHI-042", teller_id="TLR-007",
+            business_date="2026-07-11", entry_kind="short",
+            events=(
+                ExcessEvent(
+                    "opened", "TLR-007", D("650.00"),
+                    "till short by 650, cross-checked against account 00456789 "
+                    "CNIC 42101-1234567-1 before flagging",
+                ),
+                ExcessEvent("countersigned", "OFF-014", D("650.00")),
+                ExcessEvent("closed", "OFF-014", D("650.00"), "adjusted from staff float"),
+            ),
+            expected_outcome="accepted",
+        ),
     ]
 
 

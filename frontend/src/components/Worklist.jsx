@@ -27,7 +27,11 @@ export default function Worklist({ lang = "ur" }) {
   return (
     <div className="split">
       <section className="panel">
-        <h2>Exception Worklist</h2>
+        <h2>EOD Recon Report</h2>
+        <p className="muted">
+          Worklist of ingested EOD sessions, ranked engine suspects, and the
+          signed reconciliation PDF for each — select a row for detail.
+        </p>
         {rows.length === 0 && (
           <p className="muted">No sessions yet — ingest an EOD session to begin.</p>
         )}

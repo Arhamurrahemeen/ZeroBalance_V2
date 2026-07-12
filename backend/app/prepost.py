@@ -64,7 +64,9 @@ def check_cnic_name_match(inp: dict) -> tuple[bool, str | None]:
     for k in ("cnic", "account_holder", "typed_name"):
         if k not in inp or not str(inp[k]).strip():
             raise PrepostError(f"cnic_name_match requires non-empty {k!r}")
-    score = fuzz.token_set_ratio(str(inp["account_holder"]), str(inp["typed_name"]))
+    score = fuzz.token_set_ratio(
+        str(inp["account_holder"]).upper(), str(inp["typed_name"]).upper()
+    )
     if score >= 80:
         return True, None
     return False, (

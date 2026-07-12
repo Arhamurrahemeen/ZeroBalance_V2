@@ -53,7 +53,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0 0 .5rem; }
 .btn.ghost:hover { border-color: var(--mocha); }
 .btn.ghost.active { border-color: var(--mocha); background: var(--mocha-soft); }
 
-/* EN/UR toggle (Rahbar + explanation language) */
+/* EN/UR toggle (Groq explanation language) */
 .lang-toggle { display: flex; gap: .2rem; }
 .lang-toggle .btn { padding: .35rem .6rem; }
 
@@ -94,6 +94,13 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0 0 .5rem; }
 .badge.signature { background: var(--mocha); color: var(--cream); }
 .badge.source { background: var(--mocha-soft); color: var(--ink); margin: 0 .25rem .25rem 0; }
 
+/* excess ledger state / kind badges */
+.state-opened { background: var(--mocha-soft); color: var(--mocha); }
+.state-countersigned { background: #4E6E4E22; color: var(--green); }
+.state-closed { background: #ddd; color: #555; }
+.kind-excess { background: #4E6E4E22; color: var(--green); }
+.kind-short { background: #A33B2E22; color: var(--red); }
+
 /* session detail */
 .cash-summary { display: flex; gap: 1.25rem; margin: .6rem 0 1rem; flex-wrap: wrap; }
 .cash-summary span { display: block; font-size: .74rem; color: #6b675e; }
@@ -128,20 +135,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0 0 .5rem; }
   unicode-bidi: plaintext;
 }
 
-/* ageing */
-.bucket-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: .75rem; }
-.bucket { border: 1px solid #E5E0D5; border-radius: 6px; padding: .8rem 1rem; }
-.bucket-count { font-family: var(--serif); font-size: 2.2rem; margin: .2rem 0; color: var(--mocha); }
-.bucket ul { margin: 0; padding-left: 1rem; font-size: .88rem; }
-
-/* report */
-.report-toolbar { display: flex; gap: 1rem; align-items: center; }
-.report-sheet { max-width: 760px; margin-top: 1rem; }
-.report-sheet header { border-bottom: 3px double var(--mocha); margin-bottom: 1rem; padding-bottom: .5rem; }
-.report-sheet h3 { margin-top: 1.2rem; }
-.report-suspect { border-bottom: 1px solid #EFEBE2; padding: .4rem 0; }
+/* toolbars (excess ledger register filter, cheque register filter) */
+.report-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
 .hash { font-family: var(--sans); font-size: .82rem; color: var(--mocha); font-weight: 600; }
-.report-sheet footer { margin-top: 1.5rem; border-top: 1px solid #E5E0D5; padding-top: .5rem; }
 
 /* modal */
 .modal-backdrop {
@@ -164,21 +160,11 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0 0 .5rem; }
 .modal-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
 details summary { cursor: pointer; font-size: .85rem; color: var(--mocha); margin: .4rem 0; }
 
-/* rahbar drawer */
-.rahbar-drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 380px; z-index: 15;
-  background: var(--white); border-left: 3px solid var(--mocha);
-  padding: 1.1rem 1.25rem; overflow-y: auto; box-shadow: -4px 0 18px #1A1A1830;
-}
-.rahbar-drawer select { margin: .6rem 0; }
-.rahbar-answer { margin-top: 1rem; }
-.sources { margin-top: .5rem; }
-
 .muted { color: #8a8579; }
 .error { color: var(--red); }
 
 @media print {
-  .topbar, .no-print, .rahbar-drawer { display: none !important; }
+  .topbar, .no-print { display: none !important; }
   .panel { border: none; }
   body { background: var(--white); }
 }

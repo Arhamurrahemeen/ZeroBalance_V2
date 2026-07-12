@@ -136,6 +136,10 @@ Expected new-test additions: ~18 (6 cheque + 12 prepost). Full-suite total = v1 
 3. UPDATE/DELETE on ledger tables? **No.**
 4. Did we wire pre-post to CBS? **NO.** Endpoints exist for the demo UI to call. There is no interception of any teller-input-to-CBS path. Verified by inspection: `_run_prepost` only writes to `validation_log`.
 
+### Post-close fix (found by Phase 13 pre-flight gate, 2026-07-11)
+
+`check_cnic_name_match` in `backend/app/prepost.py` scored `fuzz.token_set_ratio` without case normalization, so an all-caps CBS `account_holder` (e.g. `"AHMED ALI KHAN"`) against a naturally-cased typed name (`"Ahmed Ali Khan"`) scored 35.7 instead of 100, failing oracle case `prepost_cnic_name_pass` below the 80 threshold. Fixed by `.upper()`-ing both strings before scoring. Oracle was correct as written — this was a service bug, not a loosened test. Full suite green (61/61) after the fix.
+
 ### Ready for Phase 13
 
 Groq extension (Urdu explanations for Excess Ledger openings + cheque variance) + PDF additions (Excess Ledger Daily Register).
