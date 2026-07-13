@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { BASE, explainSession, getSession, resolveSession } from "../api.js";
+import { BASE, explainSession, getEodReconciliation, getSession, resolveSession } from "../api.js";
 import { StatusBadge, pkr } from "./Worklist.jsx";
 
 const SIGNATURE_LABELS = {
@@ -73,6 +73,16 @@ export default function SessionDetail({ sessionId, onClose, lang = "ur" }) {
     onSuccess: () => { setNote(""); invalidate(); },
   });
 
+  const {
+    data: denomView,
+    isLoading: denomLoading,
+    error: denomError,
+  } = useQuery({
+    queryKey: ["eod-reconciliation", s?.teller_id, s?.business_date],
+    queryFn: () => getEodReconciliation({ tellerId: s.teller_id, businessDate: s.business_date }),
+    enabled: Boolean(s),
+  });
+
   if (isLoading || !s) return <aside className="panel detail"><p className="muted">Loading…</p></aside>;
 
   return (
@@ -89,6 +99,37 @@ export default function SessionDetail({ sessionId, onClose, lang = "ur" }) {
         </div>
         <div><span>Txns</span><strong>{s.txn_count}</strong></div>
       </div>
+
+      <h3>EOD denomination view</h3>
+      <p className="muted">Opening/reissue counts compared with the closing count, derived from the cash movement ledger.</p>
+      {denomLoading && <p className="muted">Loading denomination reconciliation…</p>}
+      {denomError && <p className="error">{String(denomError.message ?? denomError)}</p>}
+      {denomView?.per_denom.length > 0 ? (
+        <table className="table denom-table">
+          <thead>
+            <tr>
+              <th>Denomination</th>
+              <th className="num">Opening + Reissues</th>
+              <th className="num">Physical</th>
+              <th className="num">Variance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {denomView.per_denom.map((row) => (
+              <tr key={row.denomination}>
+                <td>{row.denomination.toLocaleString("en-PK")}</td>
+                <td className="num">{pkr(row.opening_plus_reissues)}</td>
+                <td className="num">{pkr(row.physical)}</td>
+                <td className={`num ${row.variance !== 0 ? "variance" : ""}`}>
+                  {pkr(row.variance)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : !denomLoading && (
+        <p className="muted">No cash movement counts available for this teller/date yet.</p>
+      )}
 
       <h3>Ranked suspects (engine)</h3>
       {s.suspects.length === 0 && <p className="muted">No suspects — session balanced.</p>}

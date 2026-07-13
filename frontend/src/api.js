@@ -56,6 +56,21 @@ export const getCheques = ({ fromDate, toDate, branch }) =>
   api(`/cheque?from_date=${fromDate}&to_date=${toDate}${branch ? `&branch=${branch}` : ""}`);
 export const explainChequeVariance = (body) => api("/cheque/explain", json(body));
 
+// --- v2.1: Cash Movement + EOD denomination view ----------------------------
+
+export const recordCashMovement = (body) => api("/cash-movement", json(body));
+export const getCashMovements = ({ tellerId, sessionId, fromDate, toDate } = {}) => {
+  const params = [];
+  if (tellerId) params.push(`teller_id=${encodeURIComponent(tellerId)}`);
+  if (sessionId) params.push(`session_id=${encodeURIComponent(sessionId)}`);
+  if (fromDate) params.push(`from_date=${encodeURIComponent(fromDate)}`);
+  if (toDate) params.push(`to_date=${encodeURIComponent(toDate)}`);
+  return api(`/cash-movement${params.length ? `?${params.join("&")}` : ""}`);
+};
+export const verifyCashMovementChain = () => api("/cash-movement/verify-chain");
+export const getEodReconciliation = ({ tellerId, businessDate }) =>
+  api(`/eod/reconciliation?teller_id=${encodeURIComponent(tellerId)}&business_date=${encodeURIComponent(businessDate)}`);
+
 // --- v2: Pre-post validation (demo-only surface) ----------------------------
 
 export const runPrepostCheck = (checkName, { tellerId, input }) => {

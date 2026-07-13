@@ -1,4 +1,5 @@
 import { useState } from "react";
+import CashMovement from "./components/CashMovement.jsx";
 import ChequeCapture from "./components/ChequeCapture.jsx";
 import ExcessLedger from "./components/ExcessLedger.jsx";
 import IngestModal from "./components/IngestModal.jsx";
@@ -10,6 +11,7 @@ const TABS = [
   ["eod", "EOD Recon Report"],
   ["cheque", "Cheque Capture"],
   ["prepost", "Pre-post Demo"],
+  ["cash", "Cash Movement"],
 ];
 
 export default function App() {
@@ -65,6 +67,7 @@ export default function App() {
         {tab === "eod" && <Worklist lang={lang} />}
         {tab === "cheque" && <ChequeCapture lang={lang} />}
         {tab === "prepost" && <PrepostDemo />}
+        {tab === "cash" && <CashMovement />}
       </main>
 
       {showIngest && <IngestModal onClose={() => setShowIngest(false)} />}

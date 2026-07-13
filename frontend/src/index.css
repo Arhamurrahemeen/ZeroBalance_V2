@@ -156,6 +156,26 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0 0 .5rem; }
 }
 .denom-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5rem; }
 .denom-grid label span { font-size: .74rem; color: #6b675e; display: block; }
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.success-card {
+  background: #EBF3E9; border: 1px solid #C6DDC8;
+  border-radius: 6px; padding: .8rem; margin: .8rem 0;
+}
+.verify-panel {
+  background: #F9F2E9; border: 1px solid #E3CDB3;
+  border-radius: 6px; padding: .85rem; margin-bottom: 1rem;
+}
+.verify-item {
+  display: flex; justify-content: space-between; gap: .75rem;
+  padding: .25rem 0; border-bottom: 1px solid #ECE0D5;
+}
+.verify-item:last-child { border-bottom: none; }
+.status-ok { color: #356A3F; font-weight: 700; }
+.status-broken { color: var(--red); font-weight: 700; }
+.denom-table th, .denom-table td { padding: .55rem .7rem; }
+.denom-table thead th { border-bottom: 2px solid #E5E0D5; }
+.denom-table tbody tr { border-bottom: 1px solid #F1ECE4; }
+.denom-table tbody tr:last-child { border-bottom: none; }
 .denom-total { text-align: right; margin: .5rem 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
 details summary { cursor: pointer; font-size: .85rem; color: var(--mocha); margin: .4rem 0; }
