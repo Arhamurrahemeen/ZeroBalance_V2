@@ -309,6 +309,106 @@ def _prepost_scenarios() -> list[PrepostScenario]:
     ]
 
 
+# --- Cash Movement Ledger (v2.1) --------------------------------------------
+
+CashEventType = Literal["day_start", "reissue", "handover", "day_end"]
+CashOutcome = Literal[
+    "accepted",
+    "rejected_missing_om_signoff",
+    "rejected_missing_counterparty_signoff",
+    "rejected_unexpected_counterparty_signoff",
+    "rejected_bad_denomination",
+]
+
+
+@dataclass(frozen=True)
+class CashMovementScenario:
+    case_id: str
+    event_type: CashEventType
+    teller_id: str
+    om_id: str
+    session_id: str
+    denominations: dict[str, int]  # {"5000": 2, ...}
+    counterparty_id: str | None = None
+    signoff_teller: str | None = "PIN-TLR"
+    signoff_counterparty: str | None = None
+    signoff_om: str | None = "PIN-OM"
+    expected_outcome: CashOutcome = "accepted"
+
+
+def _cash_movement_scenarios() -> list[CashMovementScenario]:
+    return [
+        # 1. day_start — happy path. Teller + OM signoff only.
+        CashMovementScenario(
+            case_id="cash_day_start_happy",
+            event_type="day_start", teller_id="TLR-001", om_id="OM-001",
+            session_id="TLR-001-2026-07-13",
+            denominations={"5000": 10, "1000": 20, "100": 50},
+            expected_outcome="accepted",
+        ),
+        # 2. reissue — happy path, mid-day vault reopening.
+        CashMovementScenario(
+            case_id="cash_reissue_happy",
+            event_type="reissue", teller_id="TLR-001", om_id="OM-001",
+            session_id="TLR-001-2026-07-13",
+            denominations={"1000": 30},
+            expected_outcome="accepted",
+        ),
+        # 3. handover — happy path, three signers.
+        CashMovementScenario(
+            case_id="cash_handover_happy",
+            event_type="handover", teller_id="TLR-001", om_id="OM-001",
+            session_id="TLR-001-2026-07-13",
+            counterparty_id="TLR-002", denominations={"5000": 5, "500": 10},
+            signoff_counterparty="PIN-TLR2",
+            expected_outcome="accepted",
+        ),
+        # 4. day_end — happy path, closing count.
+        CashMovementScenario(
+            case_id="cash_day_end_happy",
+            event_type="day_end", teller_id="TLR-001", om_id="OM-001",
+            session_id="TLR-001-2026-07-13",
+            denominations={"5000": 8, "1000": 15, "100": 20},
+            expected_outcome="accepted",
+        ),
+        # 5. day_start with no OM signoff — must be rejected.
+        CashMovementScenario(
+            case_id="cash_day_start_missing_om",
+            event_type="day_start", teller_id="TLR-003", om_id="OM-001",
+            session_id="TLR-003-2026-07-13",
+            denominations={"1000": 10},
+            signoff_om=None,
+            expected_outcome="rejected_missing_om_signoff",
+        ),
+        # 6. handover with no counterparty signoff — must be rejected (needs 3 signers).
+        CashMovementScenario(
+            case_id="cash_handover_missing_counterparty",
+            event_type="handover", teller_id="TLR-004", om_id="OM-001",
+            session_id="TLR-004-2026-07-13",
+            counterparty_id="TLR-005", denominations={"5000": 2},
+            signoff_counterparty=None,
+            expected_outcome="rejected_missing_counterparty_signoff",
+        ),
+        # 7. day_start carrying a counterparty signoff it shouldn't have — rejected.
+        CashMovementScenario(
+            case_id="cash_day_start_unexpected_counterparty",
+            event_type="day_start", teller_id="TLR-006", om_id="OM-001",
+            session_id="TLR-006-2026-07-13",
+            denominations={"1000": 5},
+            signoff_counterparty="PIN-SHOULD-NOT-BE-HERE",
+            expected_outcome="rejected_unexpected_counterparty_signoff",
+        ),
+        # 8. bad denomination key — not in the allowed note set.
+        CashMovementScenario(
+            case_id="cash_day_start_bad_denomination",
+            event_type="day_start", teller_id="TLR-007", om_id="OM-001",
+            session_id="TLR-007-2026-07-13",
+            denominations={"5": 100},  # coins, not banknotes — forbidden
+            expected_outcome="rejected_bad_denomination",
+        ),
+    ]
+
+
 # --- Public suite -----------------------------------------------------------
 
 
@@ -317,6 +417,7 @@ class ScenarioSuiteV2:
     excess: tuple[ExcessScenario, ...] = field(default_factory=tuple)
     cheque: tuple[ChequeScenario, ...] = field(default_factory=tuple)
     prepost: tuple[PrepostScenario, ...] = field(default_factory=tuple)
+    cash_movement: tuple[CashMovementScenario, ...] = field(default_factory=tuple)
 
 
 def build_suite_v2() -> ScenarioSuiteV2:
@@ -324,6 +425,7 @@ def build_suite_v2() -> ScenarioSuiteV2:
         excess=tuple(_excess_scenarios()),
         cheque=tuple(_cheque_scenarios()),
         prepost=tuple(_prepost_scenarios()),
+        cash_movement=tuple(_cash_movement_scenarios()),
     )
 
 
@@ -406,6 +508,55 @@ def _check_prepost(s: PrepostScenario) -> list[str]:
     return problems
 
 
+_VALID_CASH_DENOMS = {5000, 1000, 500, 100, 50, 20, 10}
+_VALID_CASH_OUTCOMES = {
+    "accepted", "rejected_missing_om_signoff",
+    "rejected_missing_counterparty_signoff",
+    "rejected_unexpected_counterparty_signoff", "rejected_bad_denomination",
+}
+
+
+def _check_cash_movement(s: CashMovementScenario) -> list[str]:
+    problems: list[str] = []
+    if s.event_type not in ("day_start", "reissue", "handover", "day_end"):
+        problems.append(f"bad event_type {s.event_type}")
+    if s.expected_outcome not in _VALID_CASH_OUTCOMES:
+        problems.append(f"bad expected_outcome: {s.expected_outcome}")
+    if not s.denominations:
+        problems.append("denominations must be non-empty")
+
+    denoms_ok = all(
+        k.isdigit() and int(k) in _VALID_CASH_DENOMS and v >= 0
+        for k, v in s.denominations.items()
+    )
+    requires_counterparty = s.event_type == "handover"
+
+    if s.expected_outcome == "accepted":
+        if not denoms_ok:
+            problems.append("accepted but denominations are invalid")
+        if not s.signoff_teller or not s.signoff_om:
+            problems.append("accepted but teller/OM signoff missing")
+        if requires_counterparty and not s.signoff_counterparty:
+            problems.append("accepted handover but counterparty signoff missing")
+        if not requires_counterparty and s.signoff_counterparty:
+            problems.append("accepted non-handover but carries counterparty signoff")
+    if s.expected_outcome == "rejected_missing_om_signoff" and s.signoff_om:
+        problems.append("expected missing-OM-signoff rejection but signoff_om is set")
+    if s.expected_outcome == "rejected_missing_counterparty_signoff":
+        if not requires_counterparty:
+            problems.append("missing-counterparty rejection only applies to handover")
+        if s.signoff_counterparty:
+            problems.append("expected missing counterparty signoff but it is set")
+    if s.expected_outcome == "rejected_unexpected_counterparty_signoff":
+        if requires_counterparty:
+            problems.append("unexpected-counterparty rejection doesn't apply to handover")
+        if not s.signoff_counterparty:
+            problems.append("expected unexpected counterparty signoff but none is set")
+    if s.expected_outcome == "rejected_bad_denomination" and denoms_ok:
+        problems.append("expected bad denomination but all keys are valid")
+    return problems
+
+
 def self_check() -> bool:
     suite = build_suite_v2()
     ok = True
@@ -413,6 +564,7 @@ def self_check() -> bool:
     print(f"excess:  {len(suite.excess)} scenarios")
     print(f"cheque:  {len(suite.cheque)} scenarios")
     print(f"prepost: {len(suite.prepost)} scenarios")
+    print(f"cash_movement: {len(suite.cash_movement)} scenarios")
 
     # Coverage assertions
     if len(suite.excess) < 4:
@@ -426,6 +578,13 @@ def self_check() -> bool:
         if n < 2:
             print(f"FAIL coverage: prepost check {c} has only {n} scenarios (need 2+)")
             ok = False
+    cash_event_types = {s.event_type for s in suite.cash_movement if s.expected_outcome == "accepted"}
+    if cash_event_types != {"day_start", "reissue", "handover", "day_end"}:
+        print(f"FAIL coverage: cash_movement accepted scenarios missing event types, "
+              f"got {sorted(cash_event_types)}")
+        ok = False
+    if not any(s.event_type == "handover" for s in suite.cash_movement):
+        print("FAIL coverage: need a handover scenario"); ok = False
 
     # Per-scenario invariants
     def _report(kind: str, sid: str, problems: list[str]) -> None:
@@ -440,6 +599,8 @@ def self_check() -> bool:
         _report("cheque", s.case_id, _check_cheque(s))
     for s in suite.prepost:
         _report("prepost", s.case_id, _check_prepost(s))
+    for s in suite.cash_movement:
+        _report("cash_movement", s.case_id, _check_cash_movement(s))
 
     # Determinism: two builds are structurally identical.
     a = build_suite_v2()

@@ -5,7 +5,17 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    BigInteger, Boolean, Date, Float, ForeignKey, Integer, SmallInteger, Text, func,
+    BigInteger,
+    Boolean,
+    Computed,
+    Date,
+    Float,
+    ForeignKey,
+    Integer,
+    Numeric,
+    SmallInteger,
+    Text,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -100,18 +110,41 @@ class ReconReportRow(Base):
 # ---------------------------------------------------------------------------
 
 
-class OpeningFloatDeclarationRow(Base):
-    __tablename__ = "opening_float_declaration"
+class CashMovementLedgerRow(Base):
+    """Append-only event row for the Cash Movement Ledger (v2.1).
+
+    One row per event — NOT a state machine like ExcessLedgerRow. Sign-off
+    shape depends on event_type; enforced in the service layer, not here.
+    """
+
+    __tablename__ = "cash_movement_ledger"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    branch_code: Mapped[str] = mapped_column(Text)
+    event_type: Mapped[str] = mapped_column(Text)  # day_start|reissue|handover|day_end
     teller_id: Mapped[str] = mapped_column(Text)
-    business_date: Mapped[date] = mapped_column(Date)
-    denominations: Mapped[dict] = mapped_column(JSONB)
-    total_amount: Mapped[Decimal]
-    signed_by: Mapped[str] = mapped_column(Text)
-    signed_at: Mapped[datetime] = mapped_column(
+    counterparty_id: Mapped[str | None] = mapped_column(Text)
+    om_id: Mapped[str] = mapped_column(Text)
+    session_id: Mapped[str] = mapped_column(Text)
+    event_time: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
+    )
+    total_amount: Mapped[Decimal]
+    signoff_teller: Mapped[str] = mapped_column(Text)
+    signoff_counterparty: Mapped[str | None] = mapped_column(Text)
+    signoff_om: Mapped[str] = mapped_column(Text)
+    prev_hash: Mapped[str] = mapped_column(Text)
+    row_hash: Mapped[str] = mapped_column(Text)
+
+
+class CashMovementDenominationRow(Base):
+    __tablename__ = "cash_movement_denominations"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    movement_id: Mapped[int] = mapped_column(ForeignKey("cash_movement_ledger.id"))
+    denomination: Mapped[int] = mapped_column(Integer)
+    count: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2), Computed("denomination * count")
     )
 
 

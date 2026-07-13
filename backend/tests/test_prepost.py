@@ -18,7 +18,7 @@ from app.main import app
 
 TRUNCATE_TABLES = (
     "validation_log, cheque_transactions, excess_ledger, "
-    "opening_float_declaration, audit_ledger, suspects, denomination_counts, "
+    "cash_movement_denominations, cash_movement_ledger, audit_ledger, suspects, denomination_counts, "
     "transactions, recon_reports, eod_sessions"
 )
 

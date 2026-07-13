@@ -1,29 +1,34 @@
+from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, UploadFile
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from datetime import date
-
-from .db import append_ledger, get_db, verify_ledger
-from .db_models import EodSessionRow
+from . import cash_movement as cash_movement_svc
 from . import cheque as cheque_svc
 from . import excess_ledger as excess
 from . import prepost as prepost_svc
+from .db import append_ledger, get_db, verify_ledger
+from .db_models import EodSessionRow
 from .schemas import (
+    CashMovementChainVerifyOut,
+    CashMovementOut,
+    CashMovementRequest,
     ChequeCaptureRequest,
-    ChequeExplainRequest,
     ChequeExplainOut,
+    ChequeExplainRequest,
     ChequeOut,
+    DenomReconciliation,
+    EodReconciliationOut,
     ExcessCaseOut,
     ExcessChainVerifyOut,
     ExcessCloseRequest,
     ExcessCountersignRequest,
-    ExcessExplainRequest,
     ExcessExplainOut,
+    ExcessExplainRequest,
     ExcessOpenRequest,
     HealthResponse,
     IngestMeta,
@@ -324,6 +329,74 @@ def cheque_explain(body: ChequeExplainRequest, db: DbDep) -> ChequeExplainOut:
         raise HTTPException(502, f"explanation service failed: {e}") from e
     return ChequeExplainOut(
         lang=body.lang, explanation=result.text, mismatch_types=result.mismatch_types,
+    )
+
+
+# --- v2.1: Cash Movement Ledger --------------------------------------------
+
+
+def _movement_view_to_out(v: cash_movement_svc.MovementView) -> CashMovementOut:
+    return CashMovementOut(
+        id=v.id, event_type=v.event_type, teller_id=v.teller_id,
+        counterparty_id=v.counterparty_id, om_id=v.om_id, session_id=v.session_id,
+        event_time=v.event_time, total_amount=v.total_amount,
+        denominations=v.denominations,
+    )
+
+
+@router.post("/cash-movement", response_model=CashMovementOut, status_code=201)
+def cash_movement_record(body: CashMovementRequest, db: DbDep) -> CashMovementOut:
+    try:
+        row = cash_movement_svc.record_event(
+            db, event_type=body.event_type, teller_id=body.teller_id,
+            counterparty_id=body.counterparty_id, om_id=body.om_id,
+            session_id=body.session_id, denominations=body.denominations,
+            signoff_teller=body.signoff_teller,
+            signoff_counterparty=body.signoff_counterparty,
+            signoff_om=body.signoff_om,
+        )
+    except cash_movement_svc.CashMovementError as e:
+        db.rollback()
+        raise HTTPException(422, str(e)) from e
+    return _movement_view_to_out(cash_movement_svc.to_view(db, row))
+
+
+@router.get("/cash-movement", response_model=list[CashMovementOut])
+def cash_movement_list(
+    db: DbDep, teller_id: str | None = None, session_id: str | None = None,
+    from_date: str | None = None, to_date: str | None = None,
+) -> list[CashMovementOut]:
+    try:
+        f = date.fromisoformat(from_date) if from_date else None
+        t = date.fromisoformat(to_date) if to_date else None
+    except ValueError as e:
+        raise HTTPException(422, f"bad date: {e}") from e
+    if f and t and f > t:
+        raise HTTPException(422, "from_date must be <= to_date")
+    views = cash_movement_svc.list_events(
+        db, teller_id=teller_id, session_id=session_id, from_date=f, to_date=t,
+    )
+    return [_movement_view_to_out(v) for v in views]
+
+
+@router.get("/cash-movement/verify-chain", response_model=CashMovementChainVerifyOut)
+def cash_movement_verify_chain(db: DbDep) -> CashMovementChainVerifyOut:
+    ok, rows, head = cash_movement_svc.verify_chain(db)
+    return CashMovementChainVerifyOut(ok=ok, rows=rows, head=head)
+
+
+@router.get("/eod/reconciliation", response_model=EodReconciliationOut)
+def eod_reconciliation(db: DbDep, teller_id: str, business_date: str) -> EodReconciliationOut:
+    from . import reconcile
+
+    try:
+        bd = date.fromisoformat(business_date)
+    except ValueError as e:
+        raise HTTPException(422, f"bad date: {e}") from e
+    per_denom = reconcile.denomination_view(db, teller_id=teller_id, business_date=bd)
+    return EodReconciliationOut(
+        teller_id=teller_id, business_date=business_date,
+        per_denom=[DenomReconciliation(**d) for d in per_denom],
     )
 
 

@@ -157,6 +157,52 @@ class ChequeExplainOut(BaseModel):
     mismatch_types: list[str]
 
 
+# --- v2.1: Cash Movement Ledger --------------------------------------------
+
+
+class CashMovementRequest(BaseModel):
+    event_type: Literal["day_start", "reissue", "handover", "day_end"]
+    teller_id: str = Field(min_length=1)
+    counterparty_id: str | None = None
+    om_id: str = Field(min_length=1)
+    session_id: str = Field(min_length=1)
+    denominations: dict[str, int]
+    signoff_teller: str | None = None
+    signoff_counterparty: str | None = None
+    signoff_om: str | None = None
+
+
+class CashMovementOut(BaseModel):
+    id: int
+    event_type: Literal["day_start", "reissue", "handover", "day_end"]
+    teller_id: str
+    counterparty_id: str | None = None
+    om_id: str
+    session_id: str
+    event_time: str
+    total_amount: str
+    denominations: dict[str, int]
+
+
+class CashMovementChainVerifyOut(BaseModel):
+    ok: bool
+    rows: int
+    head: str
+
+
+class DenomReconciliation(BaseModel):
+    denomination: int
+    opening_plus_reissues: int
+    physical: int
+    variance: int
+
+
+class EodReconciliationOut(BaseModel):
+    teller_id: str
+    business_date: str
+    per_denom: list[DenomReconciliation]
+
+
 # --- v2: Pre-post validation (demo-only surface) --------------------------
 
 

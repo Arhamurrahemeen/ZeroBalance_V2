@@ -92,23 +92,50 @@ CREATE TABLE recon_reports (
 
 -- ============================================================================
 -- v2 additions — do not modify v1 tables above destructively.
--- Features: opening float declaration, digital excess ledger, cheque capture,
--- pre-post validation log.
+-- Features: digital excess ledger, cheque capture, pre-post validation log.
+-- Cash Movement Ledger (v2.1) is further below.
 -- ============================================================================
 
--- Day-start denomination declaration (bulk cash from OM has no denomination —
--- this is where the audit trail actually starts). One row per teller per day.
-CREATE TABLE opening_float_declaration (
-    id             BIGSERIAL PRIMARY KEY,
-    branch_code    TEXT           NOT NULL,
-    teller_id      TEXT           NOT NULL,
-    business_date  DATE           NOT NULL,
-    denominations  JSONB          NOT NULL,     -- {"5000": 10, "1000": 50, ...}
-    total_amount   NUMERIC(14, 2) NOT NULL CHECK (total_amount > 0),
-    signed_by      TEXT           NOT NULL,
-    signed_at      TIMESTAMPTZ    NOT NULL DEFAULT now(),
-    UNIQUE (branch_code, teller_id, business_date)
+-- ============================================================================
+-- v2.1 addition — Cash Movement Ledger, replaces opening_float_declaration
+-- (dropped below; that table was never written or read by any endpoint).
+-- Event-typed, denomination-broken, dual/triple-signed, hash-chained,
+-- INSERT-only. One row per event — NOT a state machine like excess_ledger.
+-- ============================================================================
+
+CREATE TABLE cash_movement_ledger (
+    id                 BIGSERIAL PRIMARY KEY,
+    event_type         TEXT           NOT NULL CHECK (event_type IN (
+                           'day_start', 'reissue', 'handover', 'day_end')),
+    teller_id          TEXT           NOT NULL,
+    counterparty_id    TEXT,                        -- other teller, handover only
+    om_id              TEXT           NOT NULL,
+    session_id         TEXT           NOT NULL,      -- groups events into one teller day
+    event_time         TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    total_amount       NUMERIC(14, 2) NOT NULL CHECK (total_amount > 0),
+    signoff_teller      TEXT          NOT NULL,
+    signoff_counterparty TEXT,                       -- required only for handover
+    signoff_om          TEXT          NOT NULL,
+    prev_hash          TEXT           NOT NULL,      -- row_hash of previous row ('GENESIS' for first)
+    row_hash            TEXT          NOT NULL UNIQUE
 );
+CREATE INDEX idx_cash_movement_session ON cash_movement_ledger (session_id);
+CREATE INDEX idx_cash_movement_teller_time ON cash_movement_ledger (teller_id, event_time);
+
+CREATE TRIGGER cash_movement_ledger_append_only
+    BEFORE UPDATE OR DELETE ON cash_movement_ledger
+    FOR EACH ROW EXECUTE FUNCTION forbid_ledger_mutation();
+
+-- Denomination breakdown per movement event. One row per denomination.
+CREATE TABLE cash_movement_denominations (
+    id           BIGSERIAL PRIMARY KEY,
+    movement_id  BIGINT  NOT NULL REFERENCES cash_movement_ledger (id),
+    denomination INTEGER NOT NULL CHECK (denomination IN (5000, 1000, 500, 100, 50, 20, 10)),
+    count        INTEGER NOT NULL CHECK (count >= 0),
+    amount       NUMERIC(14, 2) GENERATED ALWAYS AS (denomination * count) STORED,
+    UNIQUE (movement_id, denomination)
+);
+CREATE INDEX idx_cash_movement_denom_movement ON cash_movement_denominations (movement_id);
 
 -- Digital Excess Ledger — flagship v2 feature.
 -- Append-only event table. Each row is a state event on a case_ref.
