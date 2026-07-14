@@ -16,9 +16,6 @@ export default function Worklist({ lang = "ur" }) {
     queryFn: getSessions,
   });
 
-  if (isLoading) return <p className="muted">Loading worklist…</p>;
-  if (error) return <p className="error">Backend unreachable: {error.message}</p>;
-
   const [verifyResult, setVerifyResult] = useState(null);
   const [verifyError, setVerifyError] = useState(null);
 
@@ -33,6 +30,9 @@ export default function Worklist({ lang = "ur" }) {
     onSuccess: setVerifyResult,
     onError: (error) => setVerifyError(error.message),
   });
+
+  if (isLoading) return <p className="muted">Loading worklist…</p>;
+  if (error) return <p className="error">Backend unreachable: {error.message}</p>;
 
   const order = { flagged: 0, open: 1, resolved: 2, closed: 3 };
   const rows = [...(sessions ?? [])].sort(
