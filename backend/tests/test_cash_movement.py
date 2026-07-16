@@ -190,6 +190,76 @@ def test_denomination_sum_becomes_total_amount(client: TestClient) -> None:
     assert Decimal(r.json()["total_amount"]) == _denom_total(s)
 
 
+# --- segregation of duties (Finding #1) ------------------------------------
+
+
+def _valid_day_start_body() -> dict:
+    return {
+        "event_type": "day_start", "teller_id": "TLR-100", "om_id": "OM-1",
+        "session_id": "SES-100", "denominations": {"5000": 2, "1000": 3},
+        "signoff_teller": "PIN-TLR", "signoff_om": "PIN-OM",
+    }
+
+
+def test_teller_cannot_sign_as_own_om(client: TestClient) -> None:
+    body = _valid_day_start_body()
+    body["signoff_om"] = body["signoff_teller"]  # one person signs both roles
+    r = client.post("/api/v1/cash-movement", json=body)
+    assert r.status_code == 422, r.text
+    assert "different" in r.json()["detail"].lower()
+
+
+def test_handover_requires_three_distinct_signers(client: TestClient) -> None:
+    body = {
+        "event_type": "handover", "teller_id": "TLR-100", "counterparty_id": "TLR-200",
+        "om_id": "OM-1", "session_id": "SES-100",
+        "denominations": {"5000": 2}, "signoff_teller": "PIN-TLR",
+        "signoff_counterparty": "PIN-TLR", "signoff_om": "PIN-OM",  # cp == teller
+    }
+    r = client.post("/api/v1/cash-movement", json=body)
+    assert r.status_code == 422, r.text
+    assert "distinct" in r.json()["detail"].lower()
+
+
+def test_teller_cannot_hand_over_to_themselves(client: TestClient) -> None:
+    body = {
+        "event_type": "handover", "teller_id": "TLR-100", "counterparty_id": "TLR-100",
+        "om_id": "OM-1", "session_id": "SES-100",
+        "denominations": {"5000": 2}, "signoff_teller": "PIN-TLR",
+        "signoff_counterparty": "PIN-TLR2", "signoff_om": "PIN-OM",
+    }
+    r = client.post("/api/v1/cash-movement", json=body)
+    assert r.status_code == 422, r.text
+    assert "themselves" in r.json()["detail"].lower()
+
+
+# --- sign-off tamper-evidence (Finding #2) ---------------------------------
+
+
+def test_forged_signoff_breaks_chain(client: TestClient) -> None:
+    """The hash chain must cover WHO signed. Rewriting an approver directly in
+    the DB (bypassing the append-only trigger) must make verify-chain fail."""
+    r = client.post("/api/v1/cash-movement", json=_valid_day_start_body())
+    assert r.status_code == 201, r.text
+    assert client.get("/api/v1/cash-movement/verify-chain").json()["ok"] is True
+
+    with get_engine().connect() as conn:
+        conn.execute(sqltext(
+            "ALTER TABLE cash_movement_ledger "
+            "DISABLE TRIGGER cash_movement_ledger_append_only"
+        ))
+        conn.execute(sqltext(
+            "UPDATE cash_movement_ledger SET signoff_om = 'FORGED_APPROVER'"
+        ))
+        conn.execute(sqltext(
+            "ALTER TABLE cash_movement_ledger "
+            "ENABLE TRIGGER cash_movement_ledger_append_only"
+        ))
+        conn.commit()
+
+    assert client.get("/api/v1/cash-movement/verify-chain").json()["ok"] is False
+
+
 # --- GET /eod/reconciliation -----------------------------------------------
 
 

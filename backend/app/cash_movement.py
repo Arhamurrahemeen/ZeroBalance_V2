@@ -49,6 +49,12 @@ class SignoffError(CashMovementError):
     """Sign-off shape doesn't match what event_type requires."""
 
 
+class DuplicateSignerError(SignoffError):
+    """Segregation-of-duties violation: the same person filled more than one
+    sign-off role (e.g. teller signing as their own OM), or a teller handing
+    over to themselves. Dual/triple control requires distinct signers."""
+
+
 def _requires_counterparty(event_type: EventType) -> bool:
     return event_type == "handover"
 
@@ -69,7 +75,7 @@ def _validate_denominations(denominations: dict[str, int]) -> dict[int, int]:
 
 
 def _validate_signoffs(
-    event_type: EventType, *, counterparty_id: str | None,
+    event_type: EventType, *, teller_id: str, counterparty_id: str | None,
     signoff_teller: str | None, signoff_counterparty: str | None,
     signoff_om: str | None,
 ) -> None:
@@ -88,6 +94,26 @@ def _validate_signoffs(
                 f"signoff_counterparty is not expected for event_type={event_type!r}"
             )
 
+    # Segregation of duties: the roles must be filled by distinct people, or
+    # the sign-off is worthless. A teller cannot approve their own vault
+    # movement, and a handover cannot be teller -> the same teller.
+    if signoff_teller == signoff_om:
+        raise DuplicateSignerError(
+            "signoff_teller and signoff_om must be different people "
+            "(a teller cannot approve their own cash movement)"
+        )
+    if _requires_counterparty(event_type):
+        if signoff_counterparty in (signoff_teller, signoff_om):
+            raise DuplicateSignerError(
+                "handover requires three distinct signers "
+                "(teller, counterparty, OM must all differ)"
+            )
+        if teller_id == counterparty_id:
+            raise DuplicateSignerError(
+                "handover teller_id and counterparty_id must differ "
+                "(a teller cannot hand over to themselves)"
+            )
+
 
 # --- Hash chain --------------------------------------------------------------
 
@@ -96,12 +122,19 @@ def _canonical_payload(
     *, event_type: EventType, teller_id: str, counterparty_id: str | None,
     om_id: str, session_id: str, total_amount: Decimal,
     denominations: dict[int, int],
+    signoff_teller: str | None, signoff_counterparty: str | None,
+    signoff_om: str | None,
 ) -> dict:
+    # Sign-off identities are hashed too: the whole value of this ledger is
+    # tamper-evidence on WHO approved a vault movement, not just how much.
     return {
         "event_type": event_type, "teller_id": teller_id,
         "counterparty_id": counterparty_id or "", "om_id": om_id,
         "session_id": session_id, "total_amount": f"{total_amount:.2f}",
         "denominations": {str(k): v for k, v in sorted(denominations.items())},
+        "signoff_teller": signoff_teller or "",
+        "signoff_counterparty": signoff_counterparty or "",
+        "signoff_om": signoff_om or "",
     }
 
 
@@ -127,7 +160,7 @@ def record_event(
     counterparty_id: str | None = None, signoff_counterparty: str | None = None,
 ) -> CashMovementLedgerRow:
     _validate_signoffs(
-        event_type, counterparty_id=counterparty_id,
+        event_type, teller_id=teller_id, counterparty_id=counterparty_id,
         signoff_teller=signoff_teller, signoff_counterparty=signoff_counterparty,
         signoff_om=signoff_om,
     )
@@ -138,7 +171,8 @@ def record_event(
     payload = _canonical_payload(
         event_type=event_type, teller_id=teller_id, counterparty_id=counterparty_id,
         om_id=om_id, session_id=session_id, total_amount=total_amount,
-        denominations=denoms,
+        denominations=denoms, signoff_teller=signoff_teller,
+        signoff_counterparty=signoff_counterparty, signoff_om=signoff_om,
     )
     row = CashMovementLedgerRow(
         event_type=event_type, teller_id=teller_id, counterparty_id=counterparty_id,
@@ -242,6 +276,9 @@ def verify_chain(db: Session) -> tuple[bool, int, str]:
             teller_id=row.teller_id, counterparty_id=row.counterparty_id,
             om_id=row.om_id, session_id=row.session_id,
             total_amount=row.total_amount, denominations=denoms,
+            signoff_teller=row.signoff_teller,
+            signoff_counterparty=row.signoff_counterparty,
+            signoff_om=row.signoff_om,
         )
         if row.prev_hash != prev:
             return False, n, prev
